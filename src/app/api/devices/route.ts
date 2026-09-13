@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 import context from '@/lib/tuya';
 
-// Pouze teploměry
-const ALLOWED_DEVICES = [
-  'teploměr obývák',
-  'teplota venku'
-];
-
 async function requestWithRetry(config: any, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -41,9 +35,11 @@ export async function GET() {
 
     const rawDevices = response.result || [];
 
-    const filteredDevices = rawDevices.filter((device: any) =>
-      ALLOWED_DEVICES.includes(device.name)
-    );
+    // Najde libovolné zařízení, které má v názvu "teploměr" nebo "teplota" (bez ohledu na velká/malá písmena)
+    const filteredDevices = rawDevices.filter((device: any) => {
+      const name = (device.name || '').toLowerCase();
+      return name.includes('teploměr') || name.includes('teplota') || name.includes('teplomer');
+    });
 
     const formattedDevices = filteredDevices.map((device: any) => {
       let temp = null;
