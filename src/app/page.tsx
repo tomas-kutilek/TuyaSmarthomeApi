@@ -90,7 +90,7 @@ export default function Home() {
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             minHeight: '180px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -111,7 +111,7 @@ export default function Home() {
               marginTop: '15px',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
               border: '1px solid #475569',
               color: '#64748b'
             }}>
@@ -128,7 +128,7 @@ export default function Home() {
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               minHeight: '180px'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
