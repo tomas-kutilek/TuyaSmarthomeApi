@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getTuyaContext } from '@/lib/tuya';
+import context from '@/lib/tuya';
 
 // Seznam zařízení, která CHCETE zobrazovat na dashboardu
 const ALLOWED_DEVICES = [
@@ -9,16 +9,37 @@ const ALLOWED_DEVICES = [
   'Dílna vrata'
 ];
 
+// Helper to retry requests on network errors
+async function requestWithRetry(config: any, retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await context.request(config);
+      return res;
+    } catch (error: any) {
+      const isRetryable = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT';
+      if (isRetryable && i < retries - 1) {
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 export async function GET() {
   try {
-    const tuya = getTuyaContext();
-    const response = await tuya.request({
-      path: '/v1.0/users/' + process.env.TUYA_USER_ID + '/devices',
+    const uid = (process.env.TUYA_UID || '').trim();
+    if (!uid) {
+      return NextResponse.json({ error: 'TUYA_UID is missing in environment variables' }, { status: 400 });
+    }
+
+    const response: any = await requestWithRetry({
+      path: `/v1.0/users/${uid}/devices`,
       method: 'GET',
     });
 
-    if (!response.success) {
-      return NextResponse.json({ error: response.msg }, { status: 400 });
+    if (!response || !response.success) {
+      return NextResponse.json({ error: response?.msg || 'Tuya API Request Failed' }, { status: 400 });
     }
 
     const rawDevices = response.result || [];
