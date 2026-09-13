@@ -9,7 +9,6 @@ export default function Home() {
   const [time, setTime] = useState<string>('');
   const [date, setDate] = useState<string>('');
 
-  // Aktualizace hodin a data
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -22,7 +21,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání zařízení
   useEffect(() => {
     async function fetchDevices() {
       try {
@@ -49,65 +47,119 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-4 md:p-6 flex flex-col justify-between">
-      {/* Hlavička s časem a datumem */}
-      <header className="text-center py-2 border-b border-slate-800 mb-4">
-        <div className="text-5xl md:text-6xl font-black tracking-tight text-white">
+    <main style={{
+      minHeight: '100vh',
+      backgroundColor: '#0f172a',
+      color: '#ffffff',
+      padding: '20px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      boxSizing: 'border-box'
+    }}>
+      {/* Hlavička s časem a datem */}
+      <header style={{
+        textAlign: 'center',
+        paddingBottom: '15px',
+        borderBottom: '2px solid #1e293b',
+        marginBottom: '25px'
+      }}>
+        <div style={{ fontSize: '52px', fontWeight: '900', letterSpacing: '-1px' }}>
           {time || '16:29'}
         </div>
-        <div className="text-slate-400 text-lg md:text-xl capitalize mt-1">
+        <div style={{ fontSize: '20px', color: '#94a3b8', textTransform: 'capitalize', marginTop: '4px' }}>
           {date || 'neděle 13. září'}
         </div>
       </header>
 
-      {loading && <div className="text-center text-slate-400 py-12 text-xl">Načítám...</div>}
-      {error && <div className="text-center text-red-400 py-12 text-xl">Chyba: {error}</div>}
+      {loading && <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '20px', paddingTop: '40px' }}>Načítám...</div>}
+      {error && <div style={{ textAlign: 'center', color: '#f87171', fontSize: '20px', paddingTop: '40px' }}>Chyba: {error}</div>}
 
       {!loading && !error && (
-        <div className="grid grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto w-full flex-1 items-stretch">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '20px',
+          maxWidth: '900px',
+          margin: '0 auto'
+        }}>
           
-          {/* 1. Dlaždice - Kamera iCSee (Vlevo nahoře) */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-lg md:text-xl text-slate-100 flex items-center gap-2">
-                📷 Kamera
-              </h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                LIVE
-              </span>
+          {/* 1. Kamera (Vlevo nahoře) */}
+          <div style={{
+            backgroundColor: '#1e293b',
+            border: '2px solid #334155',
+            borderRadius: '16px',
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justify: 'space-between',
+            minHeight: '180px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '22px', fontWeight: 'bold' }}>📷 Kamera</span>
+              <span style={{
+                fontSize: '12px',
+                backgroundColor: '#065f46',
+                color: '#34d399',
+                padding: '3px 10px',
+                borderRadius: '12px',
+                fontWeight: 'bold'
+              }}>LIVE</span>
             </div>
-            <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center my-auto">
-              <img 
-                src="http://192.168.1.100/snapshot.jpg" 
-                alt="Kamera iCSee"
-                className="w-full h-full object-cover"
-              />
+            <div style={{
+              backgroundColor: '#000000',
+              borderRadius: '10px',
+              height: '110px',
+              marginTop: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justify: 'center',
+              border: '1px solid #475569',
+              color: '#64748b'
+            }}>
+              [Kamera iCSee]
             </div>
           </div>
 
-          {/* 2., 3., 4. Dlaždice - Teploměry */}
+          {/* 2., 3., 4. Teploměry */}
           {devices.map((device) => (
-            <div key={device.id} className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-bold text-lg md:text-xl text-slate-200 capitalize">{device.name}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${device.online ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+            <div key={device.id} style={{
+              backgroundColor: '#1e293b',
+              border: '2px solid #334155',
+              borderRadius: '16px',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justify: 'space-between',
+              minHeight: '180px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '22px', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                  {device.name}
+                </span>
+                <span style={{
+                  fontSize: '12px',
+                  backgroundColor: device.online ? '#065f46' : '#881337',
+                  color: device.online ? '#34d399' : '#f87171',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  fontWeight: 'bold'
+                }}>
                   {device.online ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </div>
 
               {device.temperature !== null && device.temperature !== undefined ? (
-                <div className="my-auto py-2">
-                  <div className="text-4xl md:text-5xl font-black text-emerald-400 tracking-tight">
+                <div style={{ marginTop: '15px' }}>
+                  <div style={{ fontSize: '46px', fontWeight: '900', color: '#10b981' }}>
                     {device.temperature} °C
                   </div>
                   {device.humidity !== null && (
-                    <div className="text-sm md:text-base text-slate-400 mt-2 font-medium">
-                      Vlhkost: <span className="text-slate-200">{device.humidity} %</span>
+                    <div style={{ fontSize: '18px', color: '#94a3b8', marginTop: '5px' }}>
+                      Vlhkost: <strong style={{ color: '#f1f5f9' }}>{device.humidity} %</strong>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-slate-500 text-base my-auto">Teplota nedostupná</div>
+                <div style={{ color: '#64748b', fontSize: '16px', marginTop: '20px' }}>Teplota nedostupná</div>
               )}
             </div>
           ))}
