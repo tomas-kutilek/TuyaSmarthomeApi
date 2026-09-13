@@ -34,7 +34,7 @@ export async function GET() {
             method: 'GET',
         });
 
-        if (!res.success) {
+        if (!res || !res.success) {
             console.error('Tuya API Error:', res);
             return NextResponse.json({ error: res.msg, code: res.code }, { status: 500 });
         }
