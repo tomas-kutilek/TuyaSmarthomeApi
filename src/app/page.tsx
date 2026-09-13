@@ -2,13 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-const IconCamera = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-    <circle cx="12" cy="13" r="4"></circle>
-  </svg>
-);
-
 export default function Home() {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,10 +49,7 @@ export default function Home() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <IconCamera />
-                  <h2 className="font-semibold text-lg">Kamera iCSee</h2>
-                </div>
+                <h2 className="font-semibold text-lg">📷 Kamera iCSee</h2>
                 <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   LIVE
                 </span>
@@ -69,11 +59,7 @@ export default function Home() {
                   src="http://192.168.1.100/snapshot.jpg" 
                   alt="Kamera iCSee"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
                 />
-                <p className="text-xs text-slate-500 absolute">Kamera (Připojeno)</p>
               </div>
             </div>
           </div>
@@ -102,7 +88,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400 my-4">
-                    {device.online ? 'Ready to Control' : 'Offline'}
+                    {device.online ? 'Připojeno' : 'Odpojeno'}
                   </p>
                 )}
               </div>
