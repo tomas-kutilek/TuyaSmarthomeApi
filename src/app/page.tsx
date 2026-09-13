@@ -45,18 +45,18 @@ export default function Home() {
 
     fetchDevices();
     const interval = setInterval(fetchDevices, 30000);
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 flex flex-col justify-between">
+    <main className="min-h-screen bg-slate-950 text-white p-4 md:p-6 flex flex-col justify-between">
       {/* Hlavička s časem a datumem */}
-      <header className="text-center py-4 border-b border-slate-800/80 mb-6">
-        <div className="text-6xl font-extrabold tracking-tight text-white mb-1">
-          {time || '--:--'}
+      <header className="text-center py-2 border-b border-slate-800 mb-4">
+        <div className="text-5xl md:text-6xl font-black tracking-tight text-white">
+          {time || '16:29'}
         </div>
-        <div className="text-slate-400 text-lg capitalize">
-          {date || '---'}
+        <div className="text-slate-400 text-lg md:text-xl capitalize mt-1">
+          {date || 'neděle 13. září'}
         </div>
       </header>
 
@@ -64,19 +64,19 @@ export default function Home() {
       {error && <div className="text-center text-red-400 py-12 text-xl">Chyba: {error}</div>}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto w-full flex-1 items-stretch">
+        <div className="grid grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto w-full flex-1 items-stretch">
           
-          {/* Velká karta iCSee kamera */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between md:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-2xl text-slate-100 flex items-center gap-2">
-                📷 Kamera iCSee
+          {/* 1. Dlaždice - Kamera iCSee (Vlevo nahoře) */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-bold text-lg md:text-xl text-slate-100 flex items-center gap-2">
+                📷 Kamera
               </h2>
-              <span className="text-sm px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                 LIVE
               </span>
             </div>
-            <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
+            <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center my-auto">
               <img 
                 src="http://192.168.1.100/snapshot.jpg" 
                 alt="Kamera iCSee"
@@ -85,29 +85,29 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Teploměry */}
+          {/* 2., 3., 4. Dlaždice - Teploměry */}
           {devices.map((device) => (
-            <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-xl text-slate-200">{device.name}</h2>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${device.online ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+            <div key={device.id} className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-lg md:text-xl text-slate-200 capitalize">{device.name}</h2>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${device.online ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
                   {device.online ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </div>
 
               {device.temperature !== null && device.temperature !== undefined ? (
-                <div className="my-2 text-center md:text-left">
-                  <div className="text-5xl font-black text-emerald-400 tracking-tight">
+                <div className="my-auto py-2">
+                  <div className="text-4xl md:text-5xl font-black text-emerald-400 tracking-tight">
                     {device.temperature} °C
                   </div>
                   {device.humidity !== null && (
-                    <div className="text-base text-slate-400 mt-2 font-medium">
+                    <div className="text-sm md:text-base text-slate-400 mt-2 font-medium">
                       Vlhkost: <span className="text-slate-200">{device.humidity} %</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-slate-500 text-lg my-4">Teplota nedostupná</div>
+                <div className="text-slate-500 text-base my-auto">Teplota nedostupná</div>
               )}
             </div>
           ))}
