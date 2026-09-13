@@ -36,7 +36,7 @@ export async function GET() {
 
         if (!res || !res.success) {
             console.error('Tuya API Error:', res);
-            return NextResponse.json({ error: res?.msg || 'Unknown Tuya code: res?.code || 500}, { status: 500 });
+            return NextResponse.json({ error: res?.msg || 'Unknown Tuya Api error', code: res?.code || 500 }, { status: 500 });
         }
 
         return NextResponse.json(res);
