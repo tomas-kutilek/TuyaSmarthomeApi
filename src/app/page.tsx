@@ -38,14 +38,14 @@ export default function Home() {
       } catch (err: any) {
         console.error(err);
         setError(err.message);
-      } finally {
+      } font-finally {
         setLoading(false);
       }
     }
 
     fetchDevices();
     const interval = setInterval(fetchDevices, 30000);
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
   return (
