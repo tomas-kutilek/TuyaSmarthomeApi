@@ -1,47 +1,65 @@
 import { NextResponse } from 'next/server';
-import context from '@/lib/tuya';
+import { getTuyaContext } from '@/lib/tuya';
 
-// Helper to retry requests on network errors
-async function requestWithRetry(config: any, retries = 3, delay = 1000) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const res = await context.request(config);
-            return res;
-        } catch (error: any) {
-            // Retry on network errors
-            const isRetryable = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.message?.includes('socket hang up');
-
-            if (isRetryable && i < retries - 1) {
-                console.warn(`Tuya API Error (${error.code}). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
-                await new Promise(r => setTimeout(r, delay));
-                continue;
-            }
-            throw error;
-        }
-    }
-}
+// Seznam názvů zařízení, která CHCETE zobrazovat na dashboardu
+const ALLOWED_DEVICE_NAMES = [
+  'teploměr obývák',
+  'teplota venku',
+  'Audio',
+  'Dílna vrata',
+  '風扇燈' // Pokud si přejete i ventilátor/světlo, jinak tento řádek smazat
+];
 
 export async function GET() {
-    try {
-        const uid = (process.env.TUYA_UID || '').trim();
-        if (!uid) {
-            throw new Error('TUYA_UID is missing in environment variables');
-        }
+  try {
+    const tuya = getTuyaContext();
+    const response = await tuya.request({
+      path: '/v1.0/users/' + process.env.TUYA_USER_ID + '/devices',
+      method: 'GET',
+    });
 
-        // Use retry wrapper
-        const res = await requestWithRetry({
-            path: `/v1.0/users/${uid}/devices`,
-            method: 'GET',
-        });
-
-        if (!res || !res.success) {
-            console.error('Tuya API Error:', res);
-            return NextResponse.json({ error: res?.msg || 'Unknown Tuya Api error', code: res?.code || 500 }, { status: 500 });
-        }
-
-        return NextResponse.json(res);
-    } catch (error: any) {
-        console.error('Tuya Request Failed:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!response.success) {
+      return NextResponse.json({ error: response.msg }, { status: 400 });
     }
+
+    const rawDevices = response.result || [];
+
+    // 1. Filtrování: Ponecháme pouze schválená zařízení
+    const filteredDevices = rawDevices.filter((device: any) =>
+      ALLOWED_DEVICE_NAMES.includes(device.name)
+    );
+
+    // 2. Parsování hodnot (teplota, vlhkost, stav)
+    const formattedDevices = filteredDevices.map((device: any) => {
+      let temp = null;
+      let humidity = null;
+
+      if (Array.isArray(device.status)) {
+        device.status.forEach((st: any) => {
+          // Teplota
+          if (['va_temperature', 'temp_current', 'temp_indoor'].includes(st.code)) {
+            temp = typeof st.value === 'number' && st.value > 100 ? st.value / 10 : st.value;
+          }
+          // Vlhkost
+          if (['va_humidity', 'humidity_value'].includes(st.code)) {
+            humidity = st.value;
+          }
+        });
+      }
+
+      return {
+        id: device.id,
+        name: device.name,
+        online: device.online,
+        category: device.category,
+        temperature: temp,
+        humidity: humidity,
+        status: device.status,
+      };
+    });
+
+    return NextResponse.json({ result: formattedDevices });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
