@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getTuyaContext } from '@/lib/tuya';
 
-// Seznam názvů zařízení, která CHCETE zobrazovat na dashboardu
-const ALLOWED_DEVICE_NAMES = [
+// Zařízení, která chcete mít na dashboardu
+const ALLOWED_DEVICES = [
   'teploměr obývák',
   'teplota venku',
   'Audio',
-  'Dílna vrata',
-  '風扇燈' // Pokud si přejete i ventilátor/světlo, jinak tento řádek smazat
+  'Dílna vrata'
 ];
 
 export async function GET() {
@@ -24,23 +23,22 @@ export async function GET() {
 
     const rawDevices = response.result || [];
 
-    // 1. Filtrování: Ponecháme pouze schválená zařízení
+    // Filtrujeme pouze požadovaná zařízení
     const filteredDevices = rawDevices.filter((device: any) =>
-      ALLOWED_DEVICE_NAMES.includes(device.name)
+      ALLOWED_DEVICES.includes(device.name)
     );
 
-    // 2. Parsování hodnot (teplota, vlhkost, stav)
     const formattedDevices = filteredDevices.map((device: any) => {
       let temp = null;
       let humidity = null;
 
       if (Array.isArray(device.status)) {
         device.status.forEach((st: any) => {
-          // Teplota
+          // Načtení teploty
           if (['va_temperature', 'temp_current', 'temp_indoor'].includes(st.code)) {
             temp = typeof st.value === 'number' && st.value > 100 ? st.value / 10 : st.value;
           }
-          // Vlhkost
+          // Načtení vlhkosti
           if (['va_humidity', 'humidity_value'].includes(st.code)) {
             humidity = st.value;
           }
