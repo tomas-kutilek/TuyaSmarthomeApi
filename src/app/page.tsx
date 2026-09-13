@@ -38,7 +38,7 @@ export default function Home() {
       } catch (err: any) {
         console.error(err);
         setError(err.message);
-      } font-finally {
+      } finally {
         setLoading(false);
       }
     }
