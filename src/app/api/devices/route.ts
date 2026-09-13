@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTuyaContext } from '@/lib/tuya';
 
-// Zařízení, která chcete mít na dashboardu
+// Seznam zařízení, která CHCETE zobrazovat na dashboardu
 const ALLOWED_DEVICES = [
   'teploměr obývák',
   'teplota venku',
