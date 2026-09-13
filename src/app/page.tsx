@@ -6,7 +6,23 @@ export default function Home() {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [time, setTime] = useState<string>('');
+  const [date, setDate] = useState<string>('');
 
+  // Aktualizace hodin a data
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }));
+      setDate(now.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' }));
+    };
+
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Načítání zařízení
   useEffect(() => {
     async function fetchDevices() {
       try {
@@ -33,65 +49,66 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6">
-      <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Smart Home</h1>
-        <p className="text-slate-400 text-sm mt-1">Everything is under control</p>
+    <main className="min-h-screen bg-slate-950 text-white p-6 flex flex-col justify-between">
+      {/* Hlavička s časem a datumem */}
+      <header className="text-center py-4 border-b border-slate-800/80 mb-6">
+        <div className="text-6xl font-extrabold tracking-tight text-white mb-1">
+          {time || '--:--'}
+        </div>
+        <div className="text-slate-400 text-lg capitalize">
+          {date || '---'}
+        </div>
       </header>
 
-      {loading && <div className="text-center text-slate-400 py-8">Načítám...</div>}
-      {error && <div className="text-center text-red-400 py-8">Chyba: {error}</div>}
+      {loading && <div className="text-center text-slate-400 py-12 text-xl">Načítám...</div>}
+      {error && <div className="text-center text-red-400 py-12 text-xl">Chyba: {error}</div>}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto w-full flex-1 items-stretch">
           
-          {/* Kamera iCSee */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-lg">📷 Kamera iCSee</h2>
-                <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  LIVE
-                </span>
-              </div>
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center border border-slate-800">
-                <img 
-                  src="http://192.168.1.100/snapshot.jpg" 
-                  alt="Kamera iCSee"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+          {/* Velká karta iCSee kamera */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between md:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-2xl text-slate-100 flex items-center gap-2">
+                📷 Kamera iCSee
+              </h2>
+              <span className="text-sm px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                LIVE
+              </span>
+            </div>
+            <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
+              <img 
+                src="http://192.168.1.100/snapshot.jpg" 
+                alt="Kamera iCSee"
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
 
-          {/* Zařízení Tuya */}
+          {/* Teploměry */}
           {devices.map((device) => (
-            <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-semibold text-lg">{device.name}</h2>
-                  <span className={`text-xs px-2 py-1 rounded ${device.online ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
-                    {device.online ? 'ONLINE' : 'OFFLINE'}
-                  </span>
-                </div>
-
-                {device.temperature !== null && device.temperature !== undefined ? (
-                  <div className="my-4">
-                    <div className="text-3xl font-bold text-emerald-400">
-                      {device.temperature} °C
-                    </div>
-                    {device.humidity !== null && (
-                      <div className="text-sm text-slate-400 mt-1">
-                        Vlhkost: {device.humidity} %
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 my-4">
-                    {device.online ? 'Připojeno' : 'Odpojeno'}
-                  </p>
-                )}
+            <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-xl text-slate-200">{device.name}</h2>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${device.online ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                  {device.online ? 'ONLINE' : 'OFFLINE'}
+                </span>
               </div>
+
+              {device.temperature !== null && device.temperature !== undefined ? (
+                <div className="my-2 text-center md:text-left">
+                  <div className="text-5xl font-black text-emerald-400 tracking-tight">
+                    {device.temperature} °C
+                  </div>
+                  {device.humidity !== null && (
+                    <div className="text-base text-slate-400 mt-2 font-medium">
+                      Vlhkost: <span className="text-slate-200">{device.humidity} %</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-slate-500 text-lg my-4">Teplota nedostupná</div>
+              )}
             </div>
           ))}
 
