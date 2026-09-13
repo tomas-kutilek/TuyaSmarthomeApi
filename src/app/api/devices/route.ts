@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
 import context from '@/lib/tuya';
 
-// Seznam zařízení, která CHCETE zobrazovat na dashboardu
+// Pouze teploměry
 const ALLOWED_DEVICES = [
   'teploměr obývák',
-  'teplota venku',
-  'Audio',
-  'Dílna vrata'
+  'teplota venku'
 ];
 
-// Helper to retry requests on network errors
 async function requestWithRetry(config: any, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -30,7 +27,7 @@ export async function GET() {
   try {
     const uid = (process.env.TUYA_UID || '').trim();
     if (!uid) {
-      return NextResponse.json({ error: 'TUYA_UID is missing in environment variables' }, { status: 400 });
+      return NextResponse.json({ error: 'TUYA_UID is missing' }, { status: 400 });
     }
 
     const response: any = await requestWithRetry({
@@ -39,12 +36,11 @@ export async function GET() {
     });
 
     if (!response || !response.success) {
-      return NextResponse.json({ error: response?.msg || 'Tuya API Request Failed' }, { status: 400 });
+      return NextResponse.json({ error: response?.msg || 'Tuya Request Failed' }, { status: 400 });
     }
 
     const rawDevices = response.result || [];
 
-    // Filtrujeme pouze požadovaná zařízení
     const filteredDevices = rawDevices.filter((device: any) =>
       ALLOWED_DEVICES.includes(device.name)
     );
@@ -55,11 +51,9 @@ export async function GET() {
 
       if (Array.isArray(device.status)) {
         device.status.forEach((st: any) => {
-          // Načtení teploty
           if (['va_temperature', 'temp_current', 'temp_indoor'].includes(st.code)) {
             temp = typeof st.value === 'number' && st.value > 100 ? st.value / 10 : st.value;
           }
-          // Načtení vlhkosti
           if (['va_humidity', 'humidity_value'].includes(st.code)) {
             humidity = st.value;
           }
@@ -70,10 +64,8 @@ export async function GET() {
         id: device.id,
         name: device.name,
         online: device.online,
-        category: device.category,
         temperature: temp,
         humidity: humidity,
-        status: device.status,
       };
     });
 
