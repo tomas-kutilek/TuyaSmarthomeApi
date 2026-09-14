@@ -2,74 +2,75 @@
 
 import { useEffect, useState } from 'react';
 
-interface SensorData {
-  temp: string | number;
-  humidity: string | number;
-}
-
 export default function Dashboard() {
-  const [livingRoom, setLivingRoom] = useState<SensorData>({ temp: '--', humidity: '--' });
-  const [outdoor, setOutdoor] = useState<SensorData>({ temp: '--', humidity: '--' });
-  const [workshop, setWorkshop] = useState<SensorData>({ temp: '--', humidity: '--' });
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  async function fetchData() {
+    try {
+      const res = await fetch('/api/tuya');
+      const json = await res.json();
+      console.log('Data z API:', json);
+      setData(json);
+    } catch (err) {
+      console.error('Chyba API:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch('/api/tuya');
-        const data = await res.json();
-        if (data.livingRoom) setLivingRoom(data.livingRoom);
-        if (data.outdoor) setOutdoor(data.outdoor);
-        if (data.workshop) setWorkshop(data.workshop);
-      } catch (err) {
-        console.error('Chyba při načítání dat:', err);
-      }
-    }
-
     fetchData();
-    const interval = setInterval(fetchData, 30000); // obnova každých 30s
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
 
+  // Pomocné funkce pro vytažení hodnot podle toho, jak je vaše API vrací
+  const getTemp = (sensor: any) => sensor?.temp ?? sensor?.temperature ?? '--';
+  const getHum = (sensor: any) => sensor?.humidity ?? sensor?.hum ?? '--';
+
   return (
-    <main className="min-h-screen bg-black text-white p-4 flex flex-col justify-between gap-4">
-      {/* Obývák */}
-      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-center items-center shadow-lg">
-        <h2 className="text-xl md:text-2xl font-medium tracking-wide text-zinc-400 uppercase mb-2">
+    <div style={{ backgroundColor: '#000', color: '#fff', minHeight: '100vh', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' }}>
+      
+      {/* Obýváku */}
+      <div style={{ flex: 1, backgroundColor: '#18181b', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', border: '1px solid #27272a' }}>
+        <div style={{ color: '#a1a1aa', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}>
           Obývák
-        </h2>
-        <div className="text-6xl md:text-8xl font-extrabold tracking-tight my-2">
-          {livingRoom.temp}°C
         </div>
-        <div className="text-lg md:text-2xl text-zinc-400 font-light">
-          Vlhkost: <span className="text-white font-normal">{livingRoom.humidity}%</span>
+        <div style={{ fontSize: '72px', fontWeight: '900', margin: '10px 0' }}>
+          {getTemp(data?.livingRoom)} °C
+        </div>
+        <div style={{ color: '#a1a1aa', fontSize: '22px' }}>
+          Vlhkost: <strong style={{ color: '#fff' }}>{getHum(data?.livingRoom)} %</strong>
         </div>
       </div>
 
       {/* Venku */}
-      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-center items-center shadow-lg">
-        <h2 className="text-xl md:text-2xl font-medium tracking-wide text-zinc-400 uppercase mb-2">
+      <div style={{ flex: 1, backgroundColor: '#18181b', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', border: '1px solid #27272a' }}>
+        <div style={{ color: '#a1a1aa', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}>
           Venku
-        </h2>
-        <div className="text-6xl md:text-8xl font-extrabold tracking-tight my-2">
-          {outdoor.temp}°C
         </div>
-        <div className="text-lg md:text-2xl text-zinc-400 font-light">
-          Vlhkost: <span className="text-white font-normal">{outdoor.humidity}%</span>
+        <div style={{ fontSize: '72px', fontWeight: '900', margin: '10px 0' }}>
+          {getTemp(data?.outdoor)} °C
+        </div>
+        <div style={{ color: '#a1a1aa', fontSize: '22px' }}>
+          Vlhkost: <strong style={{ color: '#fff' }}>{getHum(data?.outdoor)} %</strong>
         </div>
       </div>
 
       {/* Dílna */}
-      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-center items-center shadow-lg">
-        <h2 className="text-xl md:text-2xl font-medium tracking-wide text-zinc-400 uppercase mb-2">
+      <div style={{ flex: 1, backgroundColor: '#18181b', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', border: '1px solid #27272a' }}>
+        <div style={{ color: '#a1a1aa', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}>
           Dílna
-        </h2>
-        <div className="text-6xl md:text-8xl font-extrabold tracking-tight my-2">
-          {workshop.temp}°C
         </div>
-        <div className="text-lg md:text-2xl text-zinc-400 font-light">
-          Vlhkost: <span className="text-white font-normal">{workshop.humidity}%</span>
+        <div style={{ fontSize: '72px', fontWeight: '900', margin: '10px 0' }}>
+          {getTemp(data?.workshop)} °C
+        </div>
+        <div style={{ color: '#a1a1aa', fontSize: '22px' }}>
+          Vlhkost: <strong style={{ color: '#fff' }}>{getHum(data?.workshop)} %</strong>
         </div>
       </div>
-    </main>
+
+    </div>
   );
 }
