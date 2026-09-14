@@ -78,16 +78,71 @@ export default function Dashboard() {
     return dev.humidity;
   };
 
+  // Komponenta pro zobrazení jedné karty se snímačem
+  const SensorCard = ({ title, dev }: { title: string; dev: any }) => {
+    const isOnline = dev?.online ?? false;
+
+    return (
+      <div
+        style={{
+          flex: 1,
+          backgroundColor: '#18181b',
+          borderRadius: '20px',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid #27272a',
+          position: 'relative',
+        }}
+      >
+        {/* Indikátor stavu (online / offline) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '14px',
+            right: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <div
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: isOnline ? '#22c55e' : '#ef4444',
+              boxShadow: isOnline ? '0 0 8px #22c55e' : '0 0 8px #ef4444',
+            }}
+          />
+        </div>
+
+        <div style={{ color: '#a1a1aa', fontSize: '18px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          {title}
+        </div>
+        <div style={{ fontSize: '64px', fontWeight: '900', margin: '4px 0', lineHeight: '1.1' }}>
+          {formatTemp(dev)} °C
+        </div>
+        <div style={{ color: '#a1a1aa', fontSize: '18px' }}>
+          Vlhkost: <strong style={{ color: '#ffffff' }}>{formatHum(dev)} %</strong>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
         backgroundColor: '#000000',
         color: '#ffffff',
         height: '100vh',
-        padding: '12px',
+        width: '100vw',
+        padding: '16px 20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '16px',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
@@ -99,13 +154,12 @@ export default function Dashboard() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '2px 0',
         }}
       >
-        <div style={{ fontSize: '38px', fontWeight: '900', lineHeight: '1' }}>
+        <div style={{ fontSize: '42px', fontWeight: '900', lineHeight: '1' }}>
           {timeStr || '--:--'}
         </div>
-        <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>
+        <div style={{ fontSize: '14px', color: '#a1a1aa', marginTop: '4px' }}>
           {dateStr}
         </div>
         {errorMsg && (
@@ -115,79 +169,19 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Obývák */}
+      {/* Řada se 3 kartami vedle sebe (pro displej na šířku) */}
       <div
         style={{
           flex: 1,
-          backgroundColor: '#18181b',
-          borderRadius: '16px',
-          padding: '10px',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid #27272a',
+          flexDirection: 'row',
+          gap: '16px',
+          width: '100%',
         }}
       >
-        <div style={{ color: '#a1a1aa', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-          Obývák
-        </div>
-        <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {formatTemp(livingRoom)} °C
-        </div>
-        <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{formatHum(livingRoom)} %</strong>
-        </div>
-      </div>
-
-      {/* Venku */}
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: '#18181b',
-          borderRadius: '16px',
-          padding: '10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid #27272a',
-        }}
-      >
-        <div style={{ color: '#a1a1aa', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-          Venku
-        </div>
-        <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {formatTemp(outdoor)} °C
-        </div>
-        <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{formatHum(outdoor)} %</strong>
-        </div>
-      </div>
-
-      {/* Dílna */}
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: '#18181b',
-          borderRadius: '16px',
-          padding: '10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid #27272a',
-        }}
-      >
-        <div style={{ color: '#a1a1aa', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-          Dílna
-        </div>
-        <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {formatTemp(workshop)} °C
-        </div>
-        <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{formatHum(workshop)} %</strong>
-        </div>
+        <SensorCard title="Obývák" dev={livingRoom} />
+        <SensorCard title="Venku" dev={outdoor} />
+        <SensorCard title="Dílna" dev={workshop} />
       </div>
     </div>
   );
