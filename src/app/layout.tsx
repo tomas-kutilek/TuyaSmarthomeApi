@@ -1,16 +1,8 @@
-import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'Mšec Dashboard',
-  description: 'Měření teplot a vlhkosti z Tuya čidel',
-};
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+export const metadata = {
+  title: 'Dashboard Mšec',
+  description: 'Měření teplot a vlhkosti',
 };
 
 export default function RootLayout({
@@ -20,6 +12,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="cs">
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        />
+      </head>
       <body
         style={{
           margin: 0,
