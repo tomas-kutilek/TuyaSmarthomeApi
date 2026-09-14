@@ -1,22 +1,38 @@
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-    title: 'Tuya Smart Home',
-    description: 'Control your Tuya devices via Web',
+  title: 'Mšec Dashboard',
+  description: 'Měření teplot a vlhkosti z Tuya čidel',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en">
-            <body className={inter.className}>{children}</body>
-        </html>
-    );
+  return (
+    <html lang="cs">
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          backgroundColor: '#000000',
+          color: '#ffffff',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          WebkitFontSmoothing: 'antialiased',
+        }}
+      >
+        {children}
+      </body>
+    </html>
+  );
 }
