@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
-  const [errorMsg, setErrorMsg] = useState<string>('');
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
 
@@ -31,22 +30,14 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání dat z /api/devices
+  // Načítání dat z funkčního backendu
   async function fetchData() {
     try {
       const res = await fetch('/api/devices');
-      if (!res.ok) {
-        throw new Error(`HTTP chyba: ${res.status} ${res.statusText}`);
-      }
       const json = await res.json();
-      if (json.error) {
-        setErrorMsg(`API Error: ${json.error}`);
-      } else {
-        setErrorMsg('');
-        setData(json);
-      }
-    } catch (err: any) {
-      setErrorMsg(`Chyba API: ${err.message || err}`);
+      setData(json);
+    } catch (err) {
+      console.error('Chyba při načítání API:', err);
     }
   }
 
@@ -56,37 +47,36 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Pomocné funkce pro vytažení hodnot
-  const extractVal = (obj: any, keys: string[]) => {
-    if (!obj) return '--';
-    for (const key of keys) {
-      if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+  // Extrakce teploty a vlhkosti z Tuya objektu
+  const extractVal = (sensorObj: any, type: 'temp' | 'hum') => {
+    if (!sensorObj) return '--';
+    
+    // Přímá vlastnost v objektu
+    if (type === 'temp' && (sensorObj.temp !== undefined || sensorObj.temperature !== undefined)) {
+      const val = sensorObj.temp ?? sensorObj.temperature;
+      return typeof val === 'number' && val > 100 ? (val / 10).toFixed(1) : val;
     }
-    if (Array.isArray(obj.status)) {
-      const item = obj.status.find((s: any) => keys.includes(s.code));
-      if (item) {
-        return typeof item.value === 'number' && item.value > 100 && keys.includes('va_temperature')
-          ? (item.value / 10).toFixed(1)
-          : item.value;
+    if (type === 'hum' && (sensorObj.humidity !== undefined || sensorObj.hum !== undefined)) {
+      return sensorObj.humidity ?? sensorObj.hum;
+    }
+
+    // Vytažení ze status pole Tuya
+    if (Array.isArray(sensorObj.status)) {
+      const targetCodes = type === 'temp' 
+        ? ['va_temperature', 'temp_current', 'temperature'] 
+        : ['va_humidity', 'humidity_value', 'humidity'];
+      
+      const item = sensorObj.status.find((s: any) => targetCodes.includes(s.code));
+      if (item && item.value !== undefined) {
+        if (type === 'temp' && typeof item.value === 'number' && item.value > 100) {
+          return (item.value / 10).toFixed(1);
+        }
+        return item.value;
       }
     }
+
     return '--';
   };
-
-  const getSensorData = (keyName: string) => {
-    if (!data) return null;
-    if (Array.isArray(data)) {
-      return data.find((d: any) => d.name?.toLowerCase().includes(keyName) || d.id === keyName) || null;
-    }
-    return data[keyName] || data.devices?.[keyName] || data.sensors?.[keyName] || null;
-  };
-
-  const livingRoom = getSensorData('livingRoom') || getSensorData('living_room') || getSensorData('obyvak') || getSensorData('obýváku');
-  const outdoor = getSensorData('outdoor') || getSensorData('venku') || getSensorData('venkovni');
-  const workshop = getSensorData('workshop') || getSensorData('dilna') || getSensorData('dílna');
-
-  const tempKeys = ['temp', 'temperature', 'va_temperature', 'temp_current'];
-  const humKeys = ['humidity', 'hum', 'va_humidity', 'humidity_value'];
 
   return (
     <div
@@ -118,11 +108,6 @@ export default function Dashboard() {
         <div style={{ fontSize: '13px', color: '#a1a1aa', marginTop: '2px' }}>
           {dateStr}
         </div>
-        {errorMsg && (
-          <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>
-            {errorMsg}
-          </div>
-        )}
       </div>
 
       {/* Obývák */}
@@ -143,10 +128,10 @@ export default function Dashboard() {
           Obývák
         </div>
         <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {extractVal(livingRoom, tempKeys)} °C
+          {extractVal(data?.livingRoom, 'temp')} °C
         </div>
         <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(livingRoom, humKeys)} %</strong>
+          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(data?.livingRoom, 'hum')} %</strong>
         </div>
       </div>
 
@@ -168,10 +153,10 @@ export default function Dashboard() {
           Venku
         </div>
         <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {extractVal(outdoor, tempKeys)} °C
+          {extractVal(data?.outdoor, 'temp')} °C
         </div>
         <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(outdoor, humKeys)} %</strong>
+          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(data?.outdoor, 'hum')} %</strong>
         </div>
       </div>
 
@@ -193,10 +178,10 @@ export default function Dashboard() {
           Dílna
         </div>
         <div style={{ fontSize: '58px', fontWeight: '900', margin: '2px 0' }}>
-          {extractVal(workshop, tempKeys)} °C
+          {extractVal(data?.workshop, 'temp')} °C
         </div>
         <div style={{ color: '#a1a1aa', fontSize: '16px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(workshop, humKeys)} %</strong>
+          Vlhkost: <strong style={{ color: '#ffffff' }}>{extractVal(data?.workshop, 'hum')} %</strong>
         </div>
       </div>
     </div>
