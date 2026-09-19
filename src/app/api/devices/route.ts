@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
+function calcSign(
+  clientId: string,
+  secret: string,
+  accessToken: string,
+  timestamp: string,
+  nonce: string,
+  httpMethod: string,
+  url: string
+): string {
+  const contentHash = crypto.createHash("sha256").update("").digest("hex");
+  const stringToSign = [httpMethod, contentHash, "", url].join("\n");
+  const str = clientId + accessToken + timestamp + nonce + stringToSign;
+  return crypto.createHmac("sha256", secret).update(str).digest("hex").toUpperCase();
+}
+
 export async function GET() {
   try {
     const clientId = "hx78dtfgp7p4nhrqgpt";
@@ -9,18 +24,14 @@ export async function GET() {
     const endpoint = "https://openapi.tuyaeu.com";
 
     const t = Date.now().toString();
+    const tokenUrl = "/v1.0/token?grant_type=1";
+    const tokenSign = calcSign(clientId, clientSecret, "", t, "", "GET", tokenUrl);
 
     // 1. Získání Access Tokenu
-    const tokenUrl = "/v1.0/token?grant_type=1";
-    const contentHash = crypto.createHash("sha256").update("").digest("hex");
-    const stringToSign = ["GET", contentHash, "", tokenUrl].join("\n");
-    const signStr = clientId + t + stringToSign;
-    const sign = crypto.createHmac("sha256", clientSecret).update(signStr).digest("hex").toUpperCase();
-
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
       headers: {
         client_id: clientId,
-        sign: sign,
+        sign: tokenSign,
         t: t,
         sign_method: "HMAC-SHA256",
       },
@@ -41,9 +52,7 @@ export async function GET() {
 
     // 2. Načtení živých zařízení z Tuya API
     const devicesUrl = `/v1.0/users/${userId}/devices`;
-    const devicesStringToSign = ["GET", contentHash, "", devicesUrl].join("\n");
-    const devicesSignStr = clientId + accessToken + t2 + devicesStringToSign;
-    const devicesSign = crypto.createHmac("sha256", clientSecret).update(devicesSignStr).digest("hex").toUpperCase();
+    const devicesSign = calcSign(clientId, clientSecret, accessToken, t2, "", "GET", devicesUrl);
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
