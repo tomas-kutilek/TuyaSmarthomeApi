@@ -1,21 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-function calcSign(
-  clientId: string,
-  secret: string,
-  accessToken: string,
-  timestamp: string,
-  nonce: string,
-  httpMethod: string,
-  url: string
-): string {
-  const contentHash = crypto.createHash("sha256").update("").digest("hex");
-  const stringToSign = [httpMethod, contentHash, "", url].join("\n");
-  const str = clientId + accessToken + timestamp + nonce + stringToSign;
-  return crypto.createHmac("sha256", secret).update(str).digest("hex").toUpperCase();
-}
-
 export async function GET() {
   try {
     const clientId = "hx78dtfgp7p4nhrqgpt";
@@ -24,14 +9,16 @@ export async function GET() {
     const endpoint = "https://openapi.tuyaeu.com";
 
     const t = Date.now().toString();
-    const tokenUrl = "/v1.0/token?grant_type=1";
-    const tokenSign = calcSign(clientId, clientSecret, "", t, "", "GET", tokenUrl);
 
     // 1. Získání Access Tokenu
+    const tokenUrl = "/v1.0/token?grant_type=1";
+    const strToSign = clientId + t + "GET\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\n" + tokenUrl;
+    const sign = crypto.createHmac("sha256", clientSecret).update(strToSign).digest("hex").toUpperCase();
+
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
       headers: {
         client_id: clientId,
-        sign: tokenSign,
+        sign: sign,
         t: t,
         sign_method: "HMAC-SHA256",
       },
@@ -50,9 +37,10 @@ export async function GET() {
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Načtení živých zařízení z Tuya API
+    // 2. Načtení zařízení uživatele
     const devicesUrl = `/v1.0/users/${userId}/devices`;
-    const devicesSign = calcSign(clientId, clientSecret, accessToken, t2, "", "GET", devicesUrl);
+    const strToSignDev = clientId + accessToken + t2 + "GET\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\n" + devicesUrl;
+    const devicesSign = crypto.createHmac("sha256", clientSecret).update(strToSignDev).digest("hex").toUpperCase();
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
@@ -74,7 +62,7 @@ export async function GET() {
       ]);
     }
 
-    // 3. Zpracování a mapování reálných dat ze senzorů
+    // 3. Mapování živých dat ze senzorů
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
