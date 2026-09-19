@@ -9,15 +9,14 @@ export async function GET() {
     const endpoint = "https://openapi.tuyaeu.com";
 
     const t = Date.now().toString();
-    const nonce = "";
 
-    // Empty SHA-256 string for GET request body
+    // Standardní SHA-256 hash pro prázdné tělo u GET dotazu
     const bodyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-    // 1. Get Access Token
+    // 1. Získání Access Tokenu
     const tokenUrl = "/v1.0/token?grant_type=1";
     const stringToSign = ["GET", bodyHash, "", tokenUrl].join("\n");
-    const signUrl = clientId + t + nonce + stringToSign;
+    const signUrl = clientId + t + stringToSign;
     const sign = crypto.createHmac("sha256", clientSecret).update(signUrl).digest("hex").toUpperCase();
 
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
@@ -42,10 +41,10 @@ export async function GET() {
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Fetch User Devices
+    // 2. Načtení zařízení uživatele
     const devicesUrl = `/v1.0/users/${userId}/devices`;
     const devStringToSign = ["GET", bodyHash, "", devicesUrl].join("\n");
-    const devSignUrl = clientId + accessToken + t2 + nonce + devStringToSign;
+    const devSignUrl = clientId + accessToken + t2 + devStringToSign;
     const devicesSign = crypto.createHmac("sha256", clientSecret).update(devSignUrl).digest("hex").toUpperCase();
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
@@ -68,7 +67,7 @@ export async function GET() {
       ]);
     }
 
-    // 3. Map Real-time Data
+    // 3. Mapování živých dat
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
