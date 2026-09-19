@@ -40,17 +40,13 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Načítání dat z Tuya API
+  // Načítání dat z API route
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices");
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setDevices(data);
-        } else {
-          console.error("Data z API nejsou pole:", data);
-        }
+        setDevices(data);
       }
     } catch (error) {
       console.error("Chyba při načítání senzorů:", error);
@@ -65,43 +61,39 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Bezpečné formátování teploty (vždy 1 desetinné místo)
-  const formatTemp = (rawTemp: number | null | undefined) => {
-    if (rawTemp === null || rawTemp === undefined || isNaN(Number(rawTemp))) {
-      return "--.-";
-    }
-    
-    let temp = Number(rawTemp);
+  // Pomocná funkce pro převod a formátování hodnoty z Tuya API
+  const parseTemperature = (val: number | null | undefined): number | null => {
+    if (val === null || val === undefined || isNaN(Number(val))) return null;
+    let temp = Number(val);
+    // Pokud Tuya posílá hodnotu v desetinách (např. 216 pro 21.6°C nebo 100 pro 10.0°C)
     if (Math.abs(temp) > 60) {
       temp = temp / 10;
     }
-    
-    return temp.toFixed(1);
+    return temp;
   };
 
-  // Určení barvy textu podle teploty
-  const getTempColorClass = (rawTemp: number | null | undefined) => {
-    if (rawTemp === null || rawTemp === undefined || isNaN(Number(rawTemp))) {
-      return "text-white";
-    }
-    
-    let temp = Number(rawTemp);
-    if (Math.abs(temp) > 60) {
-      temp = temp / 10;
-    }
+  const formatTemp = (val: number | null | undefined): string => {
+    const parsed = parseTemperature(val);
+    if (parsed === null) return "--.-";
+    return parsed.toFixed(1);
+  };
 
-    if (temp <= 0) {
-      return "text-blue-500"; // Modrá pro mráz a 0 °C
+  const getTempColorClass = (val: number | null | undefined): string => {
+    const parsed = parseTemperature(val);
+    if (parsed === null) return "text-white";
+
+    if (parsed <= 0) {
+      return "text-blue-500"; // Modrá pro 0 °C a mráz
     }
-    if (temp > 30) {
-      return "text-red-500"; // Červená nad 30 °C
+    if (parsed > 30) {
+      return "text-red-500"; // Červená pro teploty nad 30 °C
     }
-    return "text-white";
+    return "text-white"; // Bílá pro běžné teploty
   };
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col justify-between p-6 select-none overflow-hidden">
-      {/* Horní lišta s časem a datem */}
+      {/* Čas a datum */}
       <div className="text-center my-2">
         <h1 className="text-6xl font-extrabold tracking-tight">{time || "00:00"}</h1>
         <p className="text-lg text-gray-400 capitalize mt-1">{date}</p>
@@ -109,24 +101,18 @@ export default function Home() {
 
       {/* Mřížka se senzory */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto max-w-6xl mx-auto w-full">
-        {loading ? (
+        {loading && devices.length === 0 ? (
           <div className="col-span-3 text-center text-gray-500 py-10">
             Načítání dat ze senzorů...
           </div>
-        ) : devices.length === 0 ? (
-          <div className="col-span-3 text-center text-gray-500 py-10">
-            Žádné senzory nebyly nalezeny.
-          </div>
         ) : (
           devices.map((device) => {
-            if (!device) return null;
-
-            const tempColor = getTempColorClass(device.temperature);
             const formattedTemp = formatTemp(device.temperature);
+            const tempColor = getTempColorClass(device.temperature);
 
             return (
               <div
-                key={device.id || Math.random().toString()}
+                key={device.id}
                 className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 flex flex-col justify-between items-center relative shadow-lg"
               >
                 {/* Indikátor stavu (online/offline) */}
@@ -139,10 +125,10 @@ export default function Home() {
 
                 {/* Název senzoru */}
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                  {device.name || "Senzor"}
+                  {device.name}
                 </h2>
 
-                {/* Hodnota teploty s barvou */}
+                {/* Hodnota teploty */}
                 <div className="my-2 text-center">
                   <span className={`text-6xl font-bold tracking-tight transition-colors duration-300 ${tempColor}`}>
                     {formattedTemp}
