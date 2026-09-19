@@ -14,7 +14,6 @@ export default function Home() {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
   const [devices, setDevices] = useState<DeviceData[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const updateClock = () => {
@@ -41,23 +40,22 @@ export default function Home() {
 
   const fetchDevices = async () => {
     try {
-      const res = await fetch("/api/devices");
+      const res = await fetch("/api/devices", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setDevices(data);
         }
       }
     } catch (error) {
-      console.error("Chyba při načítání senzorů:", error);
-    } finally {
-      setLoading(false);
+      console.error("Chyba načítání:", error);
     }
   };
 
   useEffect(() => {
     fetchDevices();
-    const interval = setInterval(fetchDevices, 30000);
+    // Obnovování dat z API každých 5 sekund
+    const interval = setInterval(fetchDevices, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -80,14 +78,9 @@ export default function Home() {
   const getTempColor = (val: any): string => {
     const parsed = getParsedTemp(val);
     if (parsed === null) return "#ffffff";
-
-    if (parsed <= 0) {
-      return "#3b82f6"; // Modrá pro mráz a 0 °C
-    }
-    if (parsed > 30) {
-      return "#ef4444"; // Červená pro teploty nad 30 °C
-    }
-    return "#ffffff"; // Bílá pro běžné teploty
+    if (parsed <= 0) return "#3b82f6";
+    if (parsed > 30) return "#ef4444";
+    return "#ffffff";
   };
 
   return (
@@ -194,59 +187,43 @@ export default function Home() {
         }
       `}</style>
 
-      {/* Čas a datum */}
       <div className="header-section">
         <h1 className="clock-title">{time || "00:00"}</h1>
         <p className="date-subtitle">{date}</p>
       </div>
 
-      {/* Mřížka se senzory */}
       <div className="grid-container">
-        {loading && devices.length === 0 ? (
-          <div style={{ gridColumn: "1 / -1", textAlign: "center", color: "#737373", padding: "40px" }}>
-            Načítání dat ze senzorů...
-          </div>
-        ) : (
-          devices.map((device, index) => {
-            const formattedTemp = formatTemp(device.temperature);
-            const tempColor = getTempColor(device.temperature);
+        {devices.map((device, index) => {
+          const formattedTemp = formatTemp(device.temperature);
+          const tempColor = getTempColor(device.temperature);
 
-            return (
-              <div key={device.id || index} className="card">
-                {/* Kontrolka online / offline */}
-                <div
-                  className="online-dot"
-                  style={{
-                    backgroundColor: device.online ? "#22c55e" : "#ef4444",
-                    boxShadow: device.online ? "0 0 10px #22c55e" : "none",
-                  }}
-                  title={device.online ? "Online" : "Offline"}
-                />
-
-                {/* Název senzoru */}
-                <h2 className="sensor-name">{device.name}</h2>
-
-                {/* Teplota */}
-                <div className="temp-container">
-                  <span className="temp-value" style={{ color: tempColor }}>
-                    {formattedTemp}
-                  </span>
-                  <span className="temp-unit" style={{ color: tempColor }}>
-                    °C
-                  </span>
-                </div>
-
-                {/* Vlhkost */}
-                <div className="humidity-container">
-                  Vlhkost:{" "}
-                  <span className="humidity-value">
-                    {device.humidity !== null && device.humidity !== undefined ? `${device.humidity} %` : "-- %"}
-                  </span>
-                </div>
+          return (
+            <div key={device.id || index} className="card">
+              <div
+                className="online-dot"
+                style={{
+                  backgroundColor: device.online ? "#22c55e" : "#ef4444",
+                  boxShadow: device.online ? "0 0 10px #22c55e" : "none",
+                }}
+              />
+              <h2 className="sensor-name">{device.name}</h2>
+              <div className="temp-container">
+                <span className="temp-value" style={{ color: tempColor }}>
+                  {formattedTemp}
+                </span>
+                <span className="temp-unit" style={{ color: tempColor }}>
+                  °C
+                </span>
               </div>
-            );
-          })
-        )}
+              <div className="humidity-container">
+                Vlhkost:{" "}
+                <span className="humidity-value">
+                  {device.humidity !== null && device.humidity !== undefined ? `${device.humidity} %` : "-- %"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </main>
   );
