@@ -1,188 +1,154 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-export default function Dashboard() {
-  const [devices, setDevices] = useState<any[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string>('');
-  const [timeStr, setTimeStr] = useState<string>('');
-  const [dateStr, setDateStr] = useState<string>('');
+interface DeviceData {
+  id: string;
+  name: string;
+  temperature: number | null;
+  humidity: number | null;
+  online: boolean;
+}
 
-  // Hodiny a datum
+export default function Home() {
+  const [time, setTime] = useState<string>("");
+  const [date, setDate] = useState<string>("");
+  const [devices, setDevices] = useState<DeviceData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Aktualizace hodin a data
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      setTimeStr(
-        now.toLocaleTimeString('cs-CZ', {
-          hour: '2-digit',
-          minute: '2-digit',
+      setTime(
+        now.toLocaleTimeString("cs-CZ", {
+          hour: "2-digit",
+          minute: "2-digit",
         })
       );
-      const dateFormatted = now.toLocaleDateString('cs-CZ', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-      setDateStr(dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1));
+      setDate(
+        now.toLocaleDateString("cs-CZ", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })
+      );
     };
 
     updateClock();
-    const timer = setInterval(updateClock, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Načítání dat z /api/devices
-  async function fetchData() {
-    try {
-      const res = await fetch('/api/devices');
-      if (!res.ok) {
-        throw new Error(`HTTP chyba: ${res.status}`);
-      }
-      const json = await res.json();
-      if (json.error) {
-        setErrorMsg(`Chyba: ${json.error}`);
-      } else if (Array.isArray(json.result)) {
-        setErrorMsg('');
-        setDevices(json.result);
-      }
-    } catch (err: any) {
-      setErrorMsg(`Chyba API: ${err.message || err}`);
-    }
-  }
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Pomocná funkce pro vyhledání zařízení podle klíčových slov v názvu
-  const findDevice = (keywords: string[]) => {
-    return devices.find((d) => {
-      const name = (d.name || '').toLowerCase();
-      return keywords.some((kw) => name.includes(kw));
-    });
+  // Načítání dat z Tuya API
+  const fetchDevices = async () => {
+    try {
+      const res = await fetch("/api/devices");
+      if (res.ok) {
+        const data = await res.json();
+        setDevices(data);
+      }
+    } catch (error) {
+      console.error("Chyba při načítání senzorů:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const livingRoom = findDevice(['obývák', 'obyvak', 'obývací']);
-  const outdoor = findDevice(['venku', 'venkovní', 'venkovni']);
-  const workshop = findDevice(['dílna', 'dilna']);
+  useEffect(() => {
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 30000); // Obnovení každých 30s
+    return () => clearInterval(interval);
+  }, []);
 
-  const formatTemp = (dev: any) => {
-    if (!dev || dev.temperature === null || dev.temperature === undefined) return '--';
-    return dev.temperature;
+  // Pomocná funkce pro správné formátování teploty (vždy 1 desetinné místo)
+  const formatTemp = (rawTemp: number | null) => {
+    if (rawTemp === null || rawTemp === undefined || isNaN(rawTemp)) return "--.-";
+    
+    // Pokud Tuya posílá teplotu vynásobenou 10 (např. 216 pro 21.6°C nebo 100 pro 10.0°C)
+    let temp = rawTemp;
+    if (Math.abs(temp) > 60) {
+      temp = temp / 10;
+    }
+    
+    return temp.toFixed(1);
   };
 
-  const formatHum = (dev: any) => {
-    if (!dev || dev.humidity === null || dev.humidity === undefined) return '--';
-    return dev.humidity;
-  };
+  // Funkce pro určování barvy podle hodnoty teploty
+  const getTempColorClass = (rawTemp: number | null) => {
+    if (rawTemp === null || rawTemp === undefined || isNaN(rawTemp)) return "text-white";
+    
+    let temp = rawTemp;
+    if (Math.abs(temp) > 60) {
+      temp = temp / 10;
+    }
 
-  // Komponenta pro zobrazení jedné karty se snímačem
-  const SensorCard = ({ title, dev }: { title: string; dev: any }) => {
-    const isOnline = dev?.online ?? false;
-
-    return (
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: '#18181b',
-          borderRadius: '20px',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid #27272a',
-          position: 'relative',
-        }}
-      >
-        {/* Indikátor stavu (online / offline) */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '14px',
-            right: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <div
-            style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: isOnline ? '#22c55e' : '#ef4444',
-              boxShadow: isOnline ? '0 0 8px #22c55e' : '0 0 8px #ef4444',
-            }}
-          />
-        </div>
-
-        <div style={{ color: '#a1a1aa', fontSize: '18px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-          {title}
-        </div>
-        <div style={{ fontSize: '64px', fontWeight: '900', margin: '4px 0', lineHeight: '1.1' }}>
-          {formatTemp(dev)} °C
-        </div>
-        <div style={{ color: '#a1a1aa', fontSize: '18px' }}>
-          Vlhkost: <strong style={{ color: '#ffffff' }}>{formatHum(dev)} %</strong>
-        </div>
-      </div>
-    );
+    if (temp <= 0) {
+      return "text-blue-500"; // Modrá při 0 °C a méně
+    }
+    if (temp > 30) {
+      return "text-red-500"; // Červená při více než 30 °C
+    }
+    return "text-white"; // Bílá pro běžné teploty
   };
 
   return (
-    <div
-      style={{
-        backgroundColor: '#000000',
-        color: '#ffffff',
-        height: '100vh',
-        width: '100vw',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Záhlaví s časem a datem */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div style={{ fontSize: '42px', fontWeight: '900', lineHeight: '1' }}>
-          {timeStr || '--:--'}
-        </div>
-        <div style={{ fontSize: '14px', color: '#a1a1aa', marginTop: '4px' }}>
-          {dateStr}
-        </div>
-        {errorMsg && (
-          <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>
-            {errorMsg}
-          </div>
-        )}
+    <main className="min-h-screen bg-black text-white flex flex-col justify-between p-6 select-none overflow-hidden">
+      {/* Horní lišta s časem a datem */}
+      <div className="text-center my-2">
+        <h1 className="text-6xl font-extrabold tracking-tight">{time || "00:00"}</h1>
+        <p className="text-lg text-gray-400 capitalize mt-1">{date}</p>
       </div>
 
-      {/* Řada se 3 kartami vedle sebe (pro displej na šířku) */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '16px',
-          width: '100%',
-        }}
-      >
-        <SensorCard title="Obývák" dev={livingRoom} />
-        <SensorCard title="Venku" dev={outdoor} />
-        <SensorCard title="Dílna" dev={workshop} />
+      {/* Mřížka se senzory */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto max-w-6xl mx-auto w-full">
+        {loading ? (
+          <div className="col-span-3 text-center text-gray-500 py-10">
+            Načítání dat ze senzorů...
+          </div>
+        ) : (
+          devices.map((device) => {
+            const tempColor = getTempColorClass(device.temperature);
+            const formattedTemp = formatTemp(device.temperature);
+
+            return (
+              <div
+                key={device.id}
+                className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 flex flex-col justify-between items-center relative shadow-lg"
+              >
+                {/* Indikátor stavu (online/offline) */}
+                <div
+                  className={`absolute top-4 right-4 w-3 h-3 rounded-full ${
+                    device.online ? "bg-green-500" : "bg-red-500"
+                  }`}
+                  title={device.online ? "Online" : "Offline"}
+                />
+
+                {/* Název senzoru */}
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                  {device.name}
+                </h2>
+
+                {/* Hodnota teploty s dynamickou barvou */}
+                <div className="my-2 text-center">
+                  <span className={`text-6xl font-bold tracking-tight transition-colors duration-300 ${tempColor}`}>
+                    {formattedTemp}
+                  </span>
+                  <span className={`text-3xl font-medium ml-1 ${tempColor}`}>°C</span>
+                </div>
+
+                {/* Vlhkost vzduchu */}
+                <div className="mt-4 text-gray-400 text-sm font-medium">
+                  Vlhkost:{" "}
+                  <span className="text-gray-200 font-semibold">
+                    {device.humidity !== null ? `${device.humidity} %` : "-- %"}
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
-    </div>
+    </main>
   );
 }
