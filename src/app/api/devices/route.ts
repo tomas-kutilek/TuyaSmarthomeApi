@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 const CLIENT_ID = "he78du5jyu7p4n4rqqjd";
-const CLIENT_SECRET = "5242e2bfce2f40c58690d408f044c6";
+const CLIENT_SECRET = "5242e2bfce2f40c58690d40638f044c6";
 const USER_ID = "eu1732220421243VrGtS";
 const ENDPOINT = "https://openapi.tuyaeu.com";
 
@@ -10,36 +10,20 @@ function sha256(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function calcSign(
-  clientId: string,
-  secret: string,
-  t: string,
-  accessToken: string,
-  nonce: string,
-  method: string,
-  url: string,
-  body: string = ""
-): string {
-  const contentSha256 = sha256(body);
-  const headersStr = "";
-  const stringToSign = [method, contentSha256, headersStr, url].join("\n");
-  const strToSign = clientId + accessToken + t + nonce + stringToSign;
-
-  return crypto
-    .createHmac("sha256", secret)
-    .update(strToSign, "utf8")
-    .digest("hex")
-    .toUpperCase();
-}
-
 export async function GET() {
   try {
     const t = Date.now().toString();
-    const nonce = "";
 
-    // 1. Získání Access Tokenu
+    // 1. Získání Access Tokenu (přímý v1 HMAC výpočet pro token)
     const tokenUrl = "/v1.0/token?grant_type=1";
-    const tokenSign = calcSign(CLIENT_ID, CLIENT_SECRET, t, "", nonce, "GET", tokenUrl);
+    const bodyHash = sha256("");
+    const stringToSign = ["GET", bodyHash, "", tokenUrl].join("\n");
+    const signStr = CLIENT_ID + t + stringToSign;
+    const tokenSign = crypto
+      .createHmac("sha256", CLIENT_SECRET)
+      .update(signStr, "utf8")
+      .digest("hex")
+      .toUpperCase();
 
     const tokenRes = await fetch(`${ENDPOINT}${tokenUrl}`, {
       headers: {
@@ -67,9 +51,15 @@ export async function GET() {
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Načtení živých zařízení z Tuya účtu
+    // 2. Načtení zařízení s platným Access Tokenem
     const devicesUrl = `/v1.0/users/${USER_ID}/devices`;
-    const devSign = calcSign(CLIENT_ID, CLIENT_SECRET, t2, accessToken, nonce, "GET", devicesUrl);
+    const devStringToSign = ["GET", bodyHash, "", devicesUrl].join("\n");
+    const devSignStr = CLIENT_ID + accessToken + t2 + devStringToSign;
+    const devSign = crypto
+      .createHmac("sha256", CLIENT_SECRET)
+      .update(devSignStr, "utf8")
+      .digest("hex")
+      .toUpperCase();
 
     const devicesRes = await fetch(`${ENDPOINT}${devicesUrl}`, {
       headers: {
@@ -95,7 +85,7 @@ export async function GET() {
       ]);
     }
 
-    // 3. Zpracování živých dat ze senzorů
+    // 3. Zpracování živých dat
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
