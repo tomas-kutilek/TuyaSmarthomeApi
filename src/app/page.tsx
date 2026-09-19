@@ -46,7 +46,11 @@ export default function Home() {
       const res = await fetch("/api/devices");
       if (res.ok) {
         const data = await res.json();
-        setDevices(data);
+        if (Array.isArray(data)) {
+          setDevices(data);
+        } else {
+          console.error("Data z API nejsou pole:", data);
+        }
       }
     } catch (error) {
       console.error("Chyba při načítání senzorů:", error);
@@ -57,16 +61,17 @@ export default function Home() {
 
   useEffect(() => {
     fetchDevices();
-    const interval = setInterval(fetchDevices, 30000); // Obnovení každých 30s
+    const interval = setInterval(fetchDevices, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Pomocná funkce pro správné formátování teploty (vždy 1 desetinné místo)
-  const formatTemp = (rawTemp: number | null) => {
-    if (rawTemp === null || rawTemp === undefined || isNaN(rawTemp)) return "--.-";
+  // Bezpečné formátování teploty (vždy 1 desetinné místo)
+  const formatTemp = (rawTemp: number | null | undefined) => {
+    if (rawTemp === null || rawTemp === undefined || isNaN(Number(rawTemp))) {
+      return "--.-";
+    }
     
-    // Pokud Tuya posílá teplotu vynásobenou 10 (např. 216 pro 21.6°C nebo 100 pro 10.0°C)
-    let temp = rawTemp;
+    let temp = Number(rawTemp);
     if (Math.abs(temp) > 60) {
       temp = temp / 10;
     }
@@ -74,22 +79,24 @@ export default function Home() {
     return temp.toFixed(1);
   };
 
-  // Funkce pro určování barvy podle hodnoty teploty
-  const getTempColorClass = (rawTemp: number | null) => {
-    if (rawTemp === null || rawTemp === undefined || isNaN(rawTemp)) return "text-white";
+  // Určení barvy textu podle teploty
+  const getTempColorClass = (rawTemp: number | null | undefined) => {
+    if (rawTemp === null || rawTemp === undefined || isNaN(Number(rawTemp))) {
+      return "text-white";
+    }
     
-    let temp = rawTemp;
+    let temp = Number(rawTemp);
     if (Math.abs(temp) > 60) {
       temp = temp / 10;
     }
 
     if (temp <= 0) {
-      return "text-blue-500"; // Modrá při 0 °C a méně
+      return "text-blue-500"; // Modrá pro mráz a 0 °C
     }
     if (temp > 30) {
-      return "text-red-500"; // Červená při více než 30 °C
+      return "text-red-500"; // Červená nad 30 °C
     }
-    return "text-white"; // Bílá pro běžné teploty
+    return "text-white";
   };
 
   return (
@@ -106,14 +113,20 @@ export default function Home() {
           <div className="col-span-3 text-center text-gray-500 py-10">
             Načítání dat ze senzorů...
           </div>
+        ) : devices.length === 0 ? (
+          <div className="col-span-3 text-center text-gray-500 py-10">
+            Žádné senzory nebyly nalezeny.
+          </div>
         ) : (
           devices.map((device) => {
+            if (!device) return null;
+
             const tempColor = getTempColorClass(device.temperature);
             const formattedTemp = formatTemp(device.temperature);
 
             return (
               <div
-                key={device.id}
+                key={device.id || Math.random().toString()}
                 className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 flex flex-col justify-between items-center relative shadow-lg"
               >
                 {/* Indikátor stavu (online/offline) */}
@@ -126,10 +139,10 @@ export default function Home() {
 
                 {/* Název senzoru */}
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                  {device.name}
+                  {device.name || "Senzor"}
                 </h2>
 
-                {/* Hodnota teploty s dynamickou barvou */}
+                {/* Hodnota teploty s barvou */}
                 <div className="my-2 text-center">
                   <span className={`text-6xl font-bold tracking-tight transition-colors duration-300 ${tempColor}`}>
                     {formattedTemp}
@@ -141,7 +154,9 @@ export default function Home() {
                 <div className="mt-4 text-gray-400 text-sm font-medium">
                   Vlhkost:{" "}
                   <span className="text-gray-200 font-semibold">
-                    {device.humidity !== null ? `${device.humidity} %` : "-- %"}
+                    {device.humidity !== null && device.humidity !== undefined
+                      ? `${device.humidity} %`
+                      : "-- %"}
                   </span>
                 </div>
               </div>
