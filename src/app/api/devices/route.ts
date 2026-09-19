@@ -1,19 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-// Pomocná funkce pro podpis Tuya API požadavků (HMAC-SHA256)
-function generateSign(
-  clientId: string,
-  secret: string,
-  accessToken: string = "",
-  t: string,
-  nonce: string = "",
-  stringToSign: string
-) {
-  const str = clientId + accessToken + t + nonce + stringToSign;
-  return crypto.createHmac("sha256", secret).update(str).digest("hex").toUpperCase();
-}
-
 export async function GET() {
   try {
     const clientId = process.env.TUYA_CLIENT_ID;
@@ -22,7 +9,7 @@ export async function GET() {
     const userId = process.env.TUYA_USER_ID;
 
     if (!clientId || !clientSecret || !userId) {
-      console.warn("Chybí Tuya proměnné prostředí.");
+      console.error("TUYA ERROR: Chybí proměnné prostředí na Vercelu!");
       return NextResponse.json([]);
     }
 
@@ -30,13 +17,15 @@ export async function GET() {
 
     // 1. Získání Access Tokenu
     const tokenUrl = "/v1.0/token?grant_type=1";
-    const tokenStringToSign = ["GET", crypto.createHash("sha256").update("").digest("hex"), "", tokenUrl].join("\n");
-    const tokenSign = generateSign(clientId, clientSecret, "", t, "", tokenStringToSign);
+    const contentHash = crypto.createHash("sha256").update("").digest("hex");
+    const stringToSign = ["GET", contentHash, "", tokenUrl].join("\n");
+    const signStr = clientId + t + stringToSign;
+    const sign = crypto.createHmac("sha256", clientSecret).update(signStr).digest("hex").toUpperCase();
 
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
       headers: {
         client_id: clientId,
-        sign: tokenSign,
+        sign: sign,
         t: t,
         sign_method: "HMAC-SHA256",
       },
@@ -46,17 +35,18 @@ export async function GET() {
     const tokenData = await tokenRes.json();
 
     if (!tokenData.success || !tokenData.result?.access_token) {
-      console.error("Tuya Token Error:", tokenData);
+      console.error("TUYA TOKEN ERROR:", JSON.stringify(tokenData));
       return NextResponse.json([]);
     }
 
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Získání seznamu zařízení uživatele
+    // 2. Získání zařízení uživatele
     const devicesUrl = `/v1.0/users/${userId}/devices`;
-    const devicesStringToSign = ["GET", crypto.createHash("sha256").update("").digest("hex"), "", devicesUrl].join("\n");
-    const devicesSign = generateSign(clientId, clientSecret, accessToken, t2, "", devicesStringToSign);
+    const devicesStringToSign = ["GET", contentHash, "", devicesUrl].join("\n");
+    const devicesSignStr = clientId + accessToken + t2 + devicesStringToSign;
+    const devicesSign = crypto.createHmac("sha256", clientSecret).update(devicesSignStr).digest("hex").toUpperCase();
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
@@ -72,27 +62,21 @@ export async function GET() {
     const devicesData = await devicesRes.json();
 
     if (!devicesData.success || !Array.isArray(devicesData.result)) {
-      console.error("Tuya Devices Error:", devicesData);
+      console.error("TUYA DEVICES ERROR:", JSON.stringify(devicesData));
       return NextResponse.json([]);
     }
 
-    // 3. Mapování dat ze senzorů
+    // 3. Zpracování reálných dat ze senzorů
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
 
       if (Array.isArray(dev.status)) {
         const tempStatus = dev.status.find(
-          (s: any) =>
-            s.code === "temp_current" ||
-            s.code === "va_temperature" ||
-            s.code === "temp"
+          (s: any) => s.code === "temp_current" || s.code === "va_temperature" || s.code === "temp"
         );
         const humStatus = dev.status.find(
-          (s: any) =>
-            s.code === "humidity_current" ||
-            s.code === "va_humidity" ||
-            s.code === "humidity"
+          (s: any) => s.code === "humidity_current" || s.code === "va_humidity" || s.code === "humidity"
         );
 
         if (tempStatus !== undefined) temp = tempStatus.value;
@@ -109,8 +93,8 @@ export async function GET() {
     });
 
     return NextResponse.json(formattedDevices);
-  } catch (error) {
-    console.error("Chyba při komunikaci s Tuya API:", error);
+  } catch (error: any) {
+    console.error("SERVER CATCH ERROR:", error?.message || error);
     return NextResponse.json([]);
   }
 }
