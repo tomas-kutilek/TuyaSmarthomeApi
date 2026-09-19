@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-const CLIENT_ID = "hx78dtfgp7p4nhrqgpt";
-const CLIENT_SECRET = "5242a3bfba2f40c18fe10d406391f44ea";
+const CLIENT_ID = "he78du5jyu7p4n4rqqjd";
+const CLIENT_SECRET = "5242e2bfce2f40c58690d408f044c6";
 const USER_ID = "eu1732220421243VrGtS";
 const ENDPOINT = "https://openapi.tuyaeu.com";
 
-// Pomocná funkce pro výpočet SHA256 v hex tvaru
 function sha256(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-// Generování Tuya API HMAC Signatures podle oficiální v2 specifikace
 function calcSign(
   clientId: string,
   secret: string,
@@ -23,7 +21,7 @@ function calcSign(
   body: string = ""
 ): string {
   const contentSha256 = sha256(body);
-  const headersStr = ""; // Žádné speciální podepsané hlavičky
+  const headersStr = "";
   const stringToSign = [method, contentSha256, headersStr, url].join("\n");
   const strToSign = clientId + accessToken + t + nonce + stringToSign;
 
@@ -37,7 +35,7 @@ function calcSign(
 export async function GET() {
   try {
     const t = Date.now().toString();
-    const nonce = ""; // Volitelné nonce
+    const nonce = "";
 
     // 1. Získání Access Tokenu
     const tokenUrl = "/v1.0/token?grant_type=1";
@@ -55,13 +53,10 @@ export async function GET() {
 
     const tokenData = await tokenRes.json();
 
-    // Pokud token selže, zobrazíme na tabletu přesnou chybovou hlášku od Tuya
     if (!tokenData || !tokenData.success || !tokenData.result?.access_token) {
       const errCode = tokenData?.code || "NO_CODE";
       const errMsg = tokenData?.msg || "Unknown token error";
-      console.error("Tuya Token Error:", tokenData);
 
-      // Dočasná záloha s jasnou indikací chyby
       return NextResponse.json([
         { id: "1", name: `OBÝVÁK (${errCode})`, temperature: 226, humidity: 62, online: false },
         { id: "2", name: `VENKU (${errMsg})`, temperature: 249, humidity: 52, online: false },
@@ -72,7 +67,7 @@ export async function GET() {
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Načtení seznamu zařízení pro daného uživatele
+    // 2. Načtení živých zařízení z Tuya účtu
     const devicesUrl = `/v1.0/users/${USER_ID}/devices`;
     const devSign = calcSign(CLIENT_ID, CLIENT_SECRET, t2, accessToken, nonce, "GET", devicesUrl);
 
@@ -92,7 +87,6 @@ export async function GET() {
     if (!devicesData || !devicesData.success || !Array.isArray(devicesData.result)) {
       const devCode = devicesData?.code || "DEV_ERR";
       const devMsg = devicesData?.msg || "Failed to load devices";
-      console.error("Tuya Devices Error:", devicesData);
 
       return NextResponse.json([
         { id: "1", name: `OBÝVÁK (${devCode})`, temperature: 226, humidity: 62, online: false },
@@ -101,7 +95,7 @@ export async function GET() {
       ]);
     }
 
-    // 3. Zpracování živých dat z čidel
+    // 3. Zpracování živých dat ze senzorů
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
