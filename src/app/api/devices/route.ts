@@ -9,11 +9,16 @@ export async function GET() {
     const endpoint = "https://openapi.tuyaeu.com";
 
     const t = Date.now().toString();
+    const nonce = "";
 
-    // 1. Získání Access Tokenu
+    // Empty SHA-256 string for GET request body
+    const bodyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    // 1. Get Access Token
     const tokenUrl = "/v1.0/token?grant_type=1";
-    const strToSign = clientId + t + "GET\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\n" + tokenUrl;
-    const sign = crypto.createHmac("sha256", clientSecret).update(strToSign).digest("hex").toUpperCase();
+    const stringToSign = ["GET", bodyHash, "", tokenUrl].join("\n");
+    const signUrl = clientId + t + nonce + stringToSign;
+    const sign = crypto.createHmac("sha256", clientSecret).update(signUrl).digest("hex").toUpperCase();
 
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
       headers: {
@@ -37,10 +42,11 @@ export async function GET() {
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Načtení zařízení uživatele
+    // 2. Fetch User Devices
     const devicesUrl = `/v1.0/users/${userId}/devices`;
-    const strToSignDev = clientId + accessToken + t2 + "GET\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\n" + devicesUrl;
-    const devicesSign = crypto.createHmac("sha256", clientSecret).update(strToSignDev).digest("hex").toUpperCase();
+    const devStringToSign = ["GET", bodyHash, "", devicesUrl].join("\n");
+    const devSignUrl = clientId + accessToken + t2 + nonce + devStringToSign;
+    const devicesSign = crypto.createHmac("sha256", clientSecret).update(devSignUrl).digest("hex").toUpperCase();
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
@@ -62,7 +68,7 @@ export async function GET() {
       ]);
     }
 
-    // 3. Mapování živých dat ze senzorů
+    // 3. Map Real-time Data
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
