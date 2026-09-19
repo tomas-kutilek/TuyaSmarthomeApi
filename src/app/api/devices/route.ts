@@ -1,42 +1,26 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-function generateSign(
-  clientId: string,
-  secret: string,
-  accessToken: string = "",
-  t: string,
-  nonce: string = "",
-  stringToSign: string
-) {
-  const str = clientId + accessToken + t + nonce + stringToSign;
-  return crypto.createHmac("sha256", secret).update(str).digest("hex").toUpperCase();
-}
-
 export async function GET() {
   try {
-    const clientId = process.env.TUYA_CLIENT_ID || "";
-    const clientSecret = process.env.TUYA_CLIENT_SECRET || "";
-    const endpoint = process.env.TUYA_ENDPOINT || "https://openapi.tuyaeu.com";
-    const userId = process.env.TUYA_USER_ID || "";
-
-    if (!clientId || !clientSecret || !userId) {
-      return NextResponse.json([
-        { id: "err", name: "CHYBÍ VERCEL PROMĚNNÉ", temperature: 0, humidity: 0, online: false }
-      ]);
-    }
+    const clientId = "hx78dtfgp7p4nhrqgpt";
+    const clientSecret = "5242a3bfba2f40c18fe10d406391f44ea";
+    const userId = "eu1732220421243VrGtS";
+    const endpoint = "https://openapi.tuyaeu.com";
 
     const t = Date.now().toString();
 
     // 1. Získání Access Tokenu
     const tokenUrl = "/v1.0/token?grant_type=1";
-    const tokenStringToSign = ["GET", crypto.createHash("sha256").update("").digest("hex"), "", tokenUrl].join("\n");
-    const tokenSign = generateSign(clientId, clientSecret, "", t, "", tokenStringToSign);
+    const contentHash = crypto.createHash("sha256").update("").digest("hex");
+    const stringToSign = ["GET", contentHash, "", tokenUrl].join("\n");
+    const signStr = clientId + t + stringToSign;
+    const sign = crypto.createHmac("sha256", clientSecret).update(signStr).digest("hex").toUpperCase();
 
     const tokenRes = await fetch(`${endpoint}${tokenUrl}`, {
       headers: {
         client_id: clientId,
-        sign: tokenSign,
+        sign: sign,
         t: t,
         sign_method: "HMAC-SHA256",
       },
@@ -45,21 +29,21 @@ export async function GET() {
 
     const tokenData = await tokenRes.json();
 
-    // Pokud selže Token, vypíšeme přesnou chybu přímo na dlaždici
     if (!tokenData || !tokenData.success || !tokenData.result?.access_token) {
-      const errMessage = tokenData?.msg || tokenData?.code || "Unknown Token Error";
+      const msg = tokenData?.msg || tokenData?.code || "Token error";
       return NextResponse.json([
-        { id: "err_token", name: `TOKEN CHYBA: ${errMessage}`, temperature: 0, humidity: 0, online: false }
+        { id: "err1", name: `TOKEN ERR: ${msg}`, temperature: 0, humidity: 0, online: false }
       ]);
     }
 
     const accessToken = tokenData.result.access_token;
     const t2 = Date.now().toString();
 
-    // 2. Načtení zařízení uživatele z Tuya API
+    // 2. Načtení živých zařízení z Tuya API
     const devicesUrl = `/v1.0/users/${userId}/devices`;
-    const devicesStringToSign = ["GET", crypto.createHash("sha256").update("").digest("hex"), "", devicesUrl].join("\n");
-    const devicesSign = generateSign(clientId, clientSecret, accessToken, t2, "", devicesStringToSign);
+    const devicesStringToSign = ["GET", contentHash, "", devicesUrl].join("\n");
+    const devicesSignStr = clientId + accessToken + t2 + devicesStringToSign;
+    const devicesSign = crypto.createHmac("sha256", clientSecret).update(devicesSignStr).digest("hex").toUpperCase();
 
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
@@ -74,15 +58,14 @@ export async function GET() {
 
     const devicesData = await devicesRes.json();
 
-    // Pokud selže načtení zařízení, vypíšeme přesnou chybu
     if (!devicesData || !devicesData.success || !Array.isArray(devicesData.result)) {
-      const errMessage = devicesData?.msg || devicesData?.code || "Unknown Device Error";
+      const msg = devicesData?.msg || devicesData?.code || "Device error";
       return NextResponse.json([
-        { id: "err_dev", name: `DEV CHYBA: ${errMessage}`, temperature: 0, humidity: 0, online: false }
+        { id: "err2", name: `DEV ERR: ${msg}`, temperature: 0, humidity: 0, online: false }
       ]);
     }
 
-    // 3. Mapování živých dat
+    // 3. Zpracování a mapování reálných dat ze senzorů
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
@@ -111,7 +94,7 @@ export async function GET() {
     return NextResponse.json(formattedDevices);
   } catch (error: any) {
     return NextResponse.json([
-      { id: "err_catch", name: `CATCH CHYBA: ${error?.message || "Server Error"}`, temperature: 0, humidity: 0, online: false }
+      { id: "err3", name: `CATCH: ${error?.message || "Err"}`, temperature: 0, humidity: 0, online: false }
     ]);
   }
 }
