@@ -24,7 +24,10 @@ export async function GET() {
     const userId = process.env.TUYA_USER_ID;
 
     if (!clientId || !clientSecret || !userId) {
-      return NextResponse.json({ error: "Missing env variables" }, { status: 500 });
+      console.error("Chybí proměnné prostředí");
+      return NextResponse.json([
+        { id: "err1", name: "CHYBA NASTAVENÍ", temperature: 0, humidity: 0, online: false }
+      ]);
     }
 
     const t = Date.now().toString();
@@ -46,7 +49,10 @@ export async function GET() {
 
     if (!tokenData.success || !tokenData.result?.access_token) {
       console.error("Tuya Token Error:", tokenData);
-      return NextResponse.json({ error: "Token fetch failed", details: tokenData }, { status: 500 });
+      // Pokud selže token, vrátíme uživateli název chyby přímo na dlaždici
+      return NextResponse.json([
+        { id: "err_token", name: `TOKEN ERR: ${tokenData.msg || tokenData.code}`, temperature: 0, humidity: 0, online: false }
+      ]);
     }
 
     const accessToken = tokenData.result.access_token;
@@ -54,7 +60,7 @@ export async function GET() {
     const devicesUrl = `/v1.0/users/${userId}/devices`;
     const devicesSign = calcSign(clientId, clientSecret, accessToken, t2, "", "GET", devicesUrl);
 
-    // 2. Získání živých zařízení
+    // 2. Získání zařízení
     const devicesRes = await fetch(`${endpoint}${devicesUrl}`, {
       headers: {
         client_id: clientId,
@@ -70,10 +76,12 @@ export async function GET() {
 
     if (!devicesData.success || !Array.isArray(devicesData.result)) {
       console.error("Tuya Devices Error:", devicesData);
-      return NextResponse.json({ error: "Devices fetch failed", details: devicesData }, { status: 500 });
+      return NextResponse.json([
+        { id: "err_dev", name: `DEV ERR: ${devicesData.msg || devicesData.code}`, temperature: 0, humidity: 0, online: false }
+      ]);
     }
 
-    // 3. Formátování reálných dat pro frontend
+    // 3. Zpracování a mapování dat ze senzorů
     const formattedDevices = devicesData.result.map((dev: any) => {
       let temp = null;
       let hum = null;
@@ -101,7 +109,9 @@ export async function GET() {
 
     return NextResponse.json(formattedDevices);
   } catch (error: any) {
-    console.error("Server Error:", error);
-    return NextResponse.json({ error: error?.message || "Internal error" }, { status: 500 });
+    console.error("Catch error:", error);
+    return NextResponse.json([
+      { id: "err_catch", name: "SERVER CATCH ERROR", temperature: 0, humidity: 0, online: false }
+    ]);
   }
 }
