@@ -15,16 +15,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Stavy pro hlasového asistenta
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [responseMsg, setResponseMsg] = useState("");
 
-  // Stav pro hodiny a datum
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
-  // Aktualizace času a data
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -50,7 +47,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načtení dat z Tuya API
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices");
@@ -66,12 +62,8 @@ export default function Home() {
       } else {
         setError(data.error || "Nepodařilo se načíst zařízení");
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Chyba připojení k serveru");
-      }
+    } catch (err: any) {
+      setError(err?.message || "Chyba připojení k serveru");
     } finally {
       setLoading(false);
     }
@@ -83,20 +75,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Ovládání hlasového asistenta
   const handleAssistantClick = () => {
     if (typeof window === "undefined") return;
 
-    const windowObj = window as unknown as {
-      SpeechRecognition?: new () => any;
-      webkitSpeechRecognition?: new () => any;
-    };
-
-    const SpeechRecognition =
-      windowObj.SpeechRecognition || windowObj.webkitSpeechRecognition;
+    const win = window as any;
+    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Browser nepodporuje Web Speech API.");
+      alert("Prohlížeč nepodporuje rozpoznávání hlasu.");
       return;
     }
 
@@ -130,7 +116,7 @@ export default function Home() {
           } else {
             setResponseMsg("Chyba: " + (data.error || "Neznámá chyba"));
           }
-        } catch {
+        } catch (e) {
           setResponseMsg("Chyba při odesílání na server.");
         }
       };
@@ -145,15 +131,12 @@ export default function Home() {
       };
 
       recognition.start();
-    } catch (e: unknown) {
+    } catch (e: any) {
       setListening(false);
-      if (e instanceof Error) {
-        alert("Nepodařilo se spustit mikrofon: " + e.message);
-      }
+      alert("Nepodařilo se spustit mikrofon: " + (e?.message || e));
     }
   };
 
-  // Filtr pouze pro 3 požadované teploměry
   const targetNames = ["teploměr dílna", "teploměr obývák", "teplota venku"];
   const filteredDevices = devices.filter((dev) =>
     targetNames.some((name) => dev.name.toLowerCase().includes(name))
@@ -172,7 +155,7 @@ export default function Home() {
         flexDirection: "column",
       }}
     >
-      {/* Horní lišta s datem, časem a hlasovým tlačítkem */}
+      {/* Horní lišta: Čas, datum a tlačítko */}
       <div
         style={{
           display: "flex",
@@ -215,7 +198,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Informace o hlasovém příkazu */}
+      {/* Zobrazení reakce na příkaz */}
       {(transcript || responseMsg) && (
         <div
           style={{
@@ -239,15 +222,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Stav načítání / chyba */}
       {loading && <p style={{ textAlign: "center", color: "#94a3b8" }}>Načítání čidel...</p>}
-      {error && (
-        <p style={{ color: "#f87171", textAlign: "center" }}>
-          Chyba: {error}
-        </p>
-      )}
+      {error && <p style={{ color: "#f87171", textAlign: "center" }}>Chyba: {error}</p>}
 
-      {/* Velká mřížka pro 3 dlaždice vedle sebe */}
+      {/* Mřížka pro 3 dlaždice */}
       <div
         style={{
           display: "grid",
@@ -302,7 +280,6 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Hlavní velká teplota */}
               <div style={{ margin: "auto 0" }}>
                 <div
                   style={{
@@ -316,11 +293,9 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Vlhkost dole */}
               {device.humidity !== undefined && device.humidity !== null && (
                 <div style={{ fontSize: "20px", color: "#94a3b8" }}>
-                  Vlhkost:{" "}
-                  <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong>
+                  Vlhkost: <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong>
                 </div>
               )}
             </div>
