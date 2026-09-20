@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 interface Device {
   id: string;
   name: string;
-  category: string;
-  status: Array<{ code: string; value: any }>;
+  temperature?: number | null;
+  humidity?: number | null;
+  online?: boolean;
 }
 
 export default function Home() {
@@ -23,14 +24,21 @@ export default function Home() {
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices");
+      if (!res.ok) throw new Error("Chyba při načítání dat");
       const data = await res.json();
-      if (data.success) {
-        setDevices(data.result || []);
+      
+      // Pokud API vrací přímo pole zařízení
+      if (Array.isArray(data)) {
+        setDevices(data);
+        setError(null);
+      } else if (data.success && Array.isArray(data.result)) {
+        setDevices(data.result);
+        setError(null);
       } else {
-        setError(data.error || "Chyba při načítání zařízení");
+        setError(data.error || "Nepodařilo se načíst zařízení");
       }
-    } catch (err) {
-      setError("Chyba připojení k serveru");
+    } catch (err: any) {
+      setError(err.message || "Chyba připojení k serveru");
     } finally {
       setLoading(false);
     }
@@ -76,9 +84,9 @@ export default function Home() {
         const data = await res.json();
         if (data.success) {
           setResponseMsg(data.message);
-          fetchDevices(); // Obnovit stav dlaždic po příkazu
+          fetchDevices();
         } else {
-          setResponseMsg("Chyba: " + (data.error || "Neznámá chyba"));
+          setResponseMsg("Chyba: " + (data.error || "Neznámá chyby"));
         }
       } catch (err) {
         setResponseMsg("Chyba připojení k serveru.");
@@ -135,17 +143,35 @@ export default function Home() {
                 key={device.id}
                 className="bg-slate-800 p-5 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all shadow-md"
               >
-                <h3 className="font-bold text-lg text-slate-100 mb-3">{device.name}</h3>
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-bold text-lg text-slate-100">{device.name}</h3>
+                  <span className={`text-xs px-2 py-1 rounded-full ${device.online ? "bg-emerald-900/60 text-emerald-400 border border-emerald-500/30" : "bg-rose-900/60 text-rose-400 border border-rose-500/30"}`}>
+                    {device.online ? "Online" : "Offline"}
+                  </span>
+                </div>
                 
-                <div className="space-y-2">
-                  {device.status?.map((st) => (
-                    <div key={st.code} className="flex justify-between items-center text-sm border-t border-slate-700/50 pt-2">
-                      <span className="text-slate-400 capitalize">{st.code.replace(/_/g, " ")}:</span>
-                      <span className="font-semibold text-slate-200">
-                        {typeof st.value === "boolean" ? (st.value ? "ZAPNUTI" : "VYPNUTO") : String(st.value)}
+                <div className="space-y-2 text-sm pt-2 border-t border-slate-700/50">
+                  {device.temperature !== undefined && device.temperature !== null && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Teplota:</span>
+                      <span className="font-semibold text-amber-400 text-base">
+                        {(device.temperature / 10).toFixed(1)} °C
                       </span>
                     </div>
-                  ))}
+                  )}
+
+                  {device.humidity !== undefined && device.humidity !== null && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Vlhkost:</span>
+                      <span className="font-semibold text-cyan-400 text-base">
+                        {device.humidity} %
+                      </span>
+                    </div>
+                  )}
+
+                  {device.temperature === null && device.humidity === null && (
+                    <p className="text-slate-500 italic text-xs">Bez naměřených hodnot</p>
+                  )}
                 </div>
               </div>
             ))}
