@@ -250,7 +250,7 @@ export default function Home() {
                 border: "1px solid #334155",
                 display: "flex",
                 flexDirection: "column",
-                justify: "space-between",
+                justifyContent: "space-between",
                 alignItems: "center",
                 textAlign: "center",
                 boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
@@ -259,7 +259,7 @@ export default function Home() {
               <div
                 style={{
                   display: "flex",
-                  justify: "space-between",
+                  justifyContent: "space-between",
                   width: "100%",
                   alignItems: "center",
                 }}
