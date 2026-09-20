@@ -66,8 +66,12 @@ export default function Home() {
       } else {
         setError(data.error || "Nepodařilo se načíst zařízení");
       }
-    } catch (err: any) {
-      setError(err.message || "Chyba připojení k serveru");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Chyba připojení k serveru");
+      }
     } finally {
       setLoading(false);
     }
@@ -83,8 +87,13 @@ export default function Home() {
   const handleAssistantClick = () => {
     if (typeof window === "undefined") return;
 
+    const windowObj = window as unknown as {
+      SpeechRecognition?: new () => any;
+      webkitSpeechRecognition?: new () => any;
+    };
+
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      windowObj.SpeechRecognition || windowObj.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       alert("Browser nepodporuje Web Speech API.");
@@ -121,7 +130,7 @@ export default function Home() {
           } else {
             setResponseMsg("Chyba: " + (data.error || "Neznámá chyba"));
           }
-        } catch (err) {
+        } catch {
           setResponseMsg("Chyba při odesílání na server.");
         }
       };
@@ -136,9 +145,11 @@ export default function Home() {
       };
 
       recognition.start();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setListening(false);
-      alert("Nepodařilo se spustit mikrofon: " + e.message);
+      if (e instanceof Error) {
+        alert("Nepodařilo se spustit mikrofon: " + e.message);
+      }
     }
   };
 
@@ -165,7 +176,7 @@ export default function Home() {
       <div
         style={{
           display: "flex",
-          justify: "space-between",
+          justifyContent: "space-between",
           alignItems: "center",
           backgroundColor: "#1e293b",
           padding: "16px 24px",
