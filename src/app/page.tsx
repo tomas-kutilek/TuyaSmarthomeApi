@@ -39,17 +39,17 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a filtrování zařízení
+  // Načítání a striktní filtrování zařízení (pouze Obývák, Venku, Dílna)
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
       if (res.ok) {
         const data: Device[] = await res.json();
         if (Array.isArray(data)) {
-          // Filtrujeme POUZE Obývák, Venku, Dílna (vyřadíme TV, Vrata atd.)
           const filtered = data.filter((dev) => {
             const nameLower = (dev.name || "").toLowerCase();
             
+            // Vyřadíme nechtěná zařízení (TV, vrata, audio atd.)
             if (
               nameLower.includes("tv") ||
               nameLower.includes("vrata") ||
@@ -68,7 +68,7 @@ export default function Home() {
             );
           });
 
-          // Seřazení v pořadí: 1. Obývák, 2. Venku, 3. Dílna
+          // Seřazení: 1. Obývák, 2. Venku, 3. Dílna
           const sorted = filtered.sort((a, b) => {
             const getOrder = (name: string) => {
               const n = name.toLowerCase();
@@ -94,7 +94,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Formátování teploty
+  // Formátování teploty (dělení 10 u celých čísel + desetinná čárka)
   const formatTemperature = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "--,-";
 
@@ -106,7 +106,7 @@ export default function Home() {
     return temp.toFixed(1).replace(".", ",");
   };
 
-  // Barva teploty (Modrá < 0, Červená > 30, Bílá ostatní)
+  // Výpočet barvy (Modrá < 0 °C, Červená > 30 °C, Bílá jinak)
   const getTemperatureColor = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "#ffffff";
 
@@ -115,63 +115,74 @@ export default function Home() {
       temp = temp / 10;
     }
 
-    if (temp < 0) return "#3b82f6"; // Modrá
-    if (temp > 30) return "#ef4444"; // Červená
-    return "#ffffff"; // Bílá
+    if (temp < 0) return "#3b82f6"; // Modrá pod nulou
+    if (temp > 30) return "#ef4444"; // Červená nad 30 °C
+    return "#ffffff"; // Bílá mezi 0 a 30 °C
   };
 
-  // Hlasový asistent
+  // Spuštění Hlasového Asistenta (pro Fully Kiosk Browser / Android)
   const handleAssistantClick = () => {
-    if (typeof window !== "undefined" && (window as unknown as { fully?: { startApplication: (app: string) => void } }).fully) {
-      (window as unknown as { fully: { startApplication: (app: string) => void } }).fully.startApplication("com.google.android.googlequicksearchbox");
+    if (
+      typeof window !== "undefined" &&
+      (window as unknown as { fully?: { startApplication: (app: string) => void } }).fully
+    ) {
+      (window as unknown as { fully: { startApplication: (app: string) => void } }).fully.startApplication(
+        "com.google.android.googlequicksearchbox"
+      );
     } else {
-      alert("Spouštím asistenta...");
+      alert("Spouštím hlasového asistenta...");
     }
   };
 
   return (
-    <div style={{
-      backgroundColor: "#000000",
-      color: "#ffffff",
-      height: "100vh",
-      width: "100vw",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-      padding: "24px",
-      boxSizing: "border-box",
-      fontFamily: "system-ui, -apple-system, sans-serif",
-      userSelect: "none",
-      overflow: "hidden"
-    }}>
-      {/* Horní lišta: Čas a datum */}
-      <header style={{
+    <div
+      style={{
+        backgroundColor: "#000000",
+        color: "#ffffff",
+        height: "100vh",
+        width: "100vw",
         display: "flex",
-        alignItems: "baseline",
-        justifyContent: "center",
-        gap: "24px",
-        borderBottom: "1px solid #262626",
-        paddingBottom: "12px",
-        flexShrink: 0
-      }}>
-        <h1 style={{ fontSize: "64px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "16px 24px",
+        boxSizing: "border-box",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        userSelect: "none",
+        overflow: "hidden",
+      }}
+    >
+      {/* Horní lišta: Čas a datum na jednom řádku */}
+      <header
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "center",
+          gap: "20px",
+          borderBottom: "1px solid #262626",
+          paddingBottom: "8px",
+          flexShrink: 0,
+        }}
+      >
+        <h1 style={{ fontSize: "56px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
           {timeStr || "00:00"}
         </h1>
-        <p style={{ fontSize: "28px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
+        <p style={{ fontSize: "24px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
           {dateStr}
         </p>
       </header>
 
-      {/* Prostřední část: 3 velké dlaždice */}
-      <section style={{
-        display: "flex",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        gap: "20px",
-        height: "60vh",
-        margin: "auto 0",
-        alignItems: "stretch"
-      }}>
+      {/* Prostřední část: 3 velké dlaždice vedle sebe */}
+      <section
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: "20px",
+          height: "56vh",
+          margin: "auto 0",
+          alignItems: "stretch",
+        }}
+      >
         {devices.map((dev) => (
           <div
             key={dev.id}
@@ -180,55 +191,69 @@ export default function Home() {
               backgroundColor: "#171717",
               border: "2px solid #262626",
               borderRadius: "24px",
-              padding: "24px",
+              padding: "20px",
               position: "relative",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               alignItems: "center",
               textAlign: "center",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
             }}
           >
-            {/* Online zelená tečka */}
-            <div style={{ position: "absolute", top: "20px", right: "20px" }}>
-              <span style={{
-                display: "block",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                backgroundColor: dev.online ? "#22c55e" : "#ef4444",
-                boxShadow: dev.online ? "0 0 12px #22c55e" : "none"
-              }} />
+            {/* Online zelená tečka v rohu */}
+            <div style={{ position: "absolute", top: "18px", right: "18px" }}>
+              <span
+                style={{
+                  display: "block",
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  backgroundColor: dev.online ? "#22c55e" : "#ef4444",
+                  boxShadow: dev.online ? "0 0 10px #22c55e" : "none",
+                }}
+              />
             </div>
 
             {/* Název čidla */}
-            <h2 style={{
-              fontSize: "22px",
-              fontWeight: "800",
-              letterSpacing: "2px",
-              textTransform: "uppercase",
-              color: "#d4d4d4",
-              marginTop: "8px"
-            }}>
+            <h2
+              style={{
+                fontSize: "20px",
+                fontWeight: "800",
+                letterSpacing: "1.5px",
+                textTransform: "uppercase",
+                color: "#d4d4d4",
+                marginTop: "4px",
+              }}
+            >
               {dev.name}
             </h2>
 
-            {/* Teplota */}
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "6px", margin: "auto 0" }}>
-              <span style={{
-                fontSize: "84px",
-                fontWeight: "900",
-                letterSpacing: "-2px",
-                color: getTemperatureColor(dev.temperature)
-              }}>
+            {/* Velké číslice teploty */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "center",
+                gap: "4px",
+                margin: "auto 0",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "76px",
+                  fontWeight: "900",
+                  letterSpacing: "-2px",
+                  color: getTemperatureColor(dev.temperature),
+                }}
+              >
                 {formatTemperature(dev.temperature)}
               </span>
-              <span style={{ fontSize: "38px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
+              <span style={{ fontSize: "32px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
             </div>
 
             {/* Vlhkost */}
-            <div style={{ fontSize: "22px", fontWeight: "600", color: "#a3a3a3", marginBottom: "8px" }}>
+            <div style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", marginBottom: "4px" }}>
               Vlhkost: <span style={{ color: "#ffffff", fontWeight: "700" }}>{dev.humidity ?? "--"} %</span>
             </div>
           </div>
@@ -236,25 +261,25 @@ export default function Home() {
       </section>
 
       {/* Spodní tlačítko Hlasového Asistenta */}
-      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0 }}>
+      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0, paddingBottom: "4px" }}>
         <button
           onClick={handleAssistantClick}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             backgroundColor: "#262626",
             color: "#ffffff",
             fontWeight: "700",
-            fontSize: "20px",
-            padding: "14px 40px",
+            fontSize: "18px",
+            padding: "10px 32px",
             borderRadius: "9999px",
             border: "1px solid #404040",
             cursor: "pointer",
-            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)"
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
           }}
         >
-          <span style={{ color: "#60a5fa", fontSize: "24px" }}>🎤</span>
+          <span style={{ fontSize: "22px" }}>🎤</span>
           <span>Hlasový asistent</span>
         </button>
       </footer>
