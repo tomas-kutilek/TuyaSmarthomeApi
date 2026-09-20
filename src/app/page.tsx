@@ -1,24 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+interface Device {
+  id: string;
+  name: string;
+  category: string;
+  status: Array<{ code: string; value: any }>;
+}
 
 export default function Home() {
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Stavy pro hlasového asistenta
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [responseMsg, setResponseMsg] = useState("");
 
+  // Načtení dat z Tuya API
+  const fetchDevices = async () => {
+    try {
+      const res = await fetch("/api/devices");
+      const data = await res.json();
+      if (data.success) {
+        setDevices(data.result || []);
+      } else {
+        setError(data.error || "Chyba při načítání zařízení");
+      }
+    } catch (err) {
+      setError("Chyba připojení k serveru");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 10000); // Obnovit každých 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Ovládání hlasového asistenta
   const handleAssistantClick = () => {
-    // Ověření podpory rozpoznání řeči v prohlížeči
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Váš prohlížeč nepodporuje rozpoznání řeči (Web Speech API).");
+      alert("Váš prohlížeč nepodporuje rozpoznání řeči.");
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "cs-CZ"; // Nastavení češtiny
+    recognition.lang = "cs-CZ";
     recognition.interimResults = false;
 
     recognition.onstart = () => {
@@ -31,7 +66,6 @@ export default function Home() {
       setTranscript(text);
       setListening(false);
 
-      // Odeslání rozpoznaného textu na backend /api/command
       try {
         const res = await fetch("/api/command", {
           method: "POST",
@@ -42,55 +76,83 @@ export default function Home() {
         const data = await res.json();
         if (data.success) {
           setResponseMsg(data.message);
+          fetchDevices(); // Obnovit stav dlaždic po příkazu
         } else {
           setResponseMsg("Chyba: " + (data.error || "Neznámá chyba"));
         }
       } catch (err) {
-        console.error("Chyba při komunikaci se serverem:", err);
         setResponseMsg("Chyba připojení k serveru.");
       }
     };
 
-    recognition.onerror = (event: any) => {
-      console.error("Chyba rozpoznání řeči:", event.error);
-      setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
 
     recognition.start();
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-slate-900 text-white font-sans">
-      <h1 className="text-3xl font-bold mb-8">Tuya Dashboard</h1>
+    <main className="min-h-screen bg-slate-900 text-white p-6 font-sans">
+      <div className="max-w-5xl mx-auto space-y-8">
+        
+        {/* Hlavička & Hlasový asistent */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+          <div>
+            <h1 className="text-3xl font-bold">Tuya Smart Home</h1>
+            <p className="text-slate-400 text-sm mt-1">Nástěnný ovládací panel</p>
+          </div>
 
-      <button
-        onClick={handleAssistantClick}
-        className={`px-8 py-4 rounded-full text-xl font-semibold shadow-lg transition-all ${
-          listening
-            ? "bg-red-500 animate-pulse"
-            : "bg-blue-600 hover:bg-blue-500"
-        }`}
-      >
-        {listening ? "Poslouchám..." : "Spustit hlasového asistenta"}
-      </button>
-
-      {transcript && (
-        <div className="mt-6 p-4 bg-slate-800 rounded-lg max-w-md w-full text-center">
-          <p className="text-sm text-slate-400">Řekli jste:</p>
-          <p className="text-lg font-medium">{transcript}</p>
+          <button
+            onClick={handleAssistantClick}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${
+              listening
+                ? "bg-red-500 animate-pulse text-white"
+                : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg"
+            }`}
+          >
+            🎤 {listening ? "Poslouchám..." : "Hlasový příkaz"}
+          </button>
         </div>
-      )}
 
-      {responseMsg && (
-        <div className="mt-4 p-4 bg-emerald-900/50 border border-emerald-500 rounded-lg max-w-md w-full text-center">
-          <p className="text-sm text-emerald-300">Odpověď backendu:</p>
-          <p className="text-lg font-medium text-emerald-200">{responseMsg}</p>
+        {/* Výstup hlasového asistenta */}
+        {(transcript || responseMsg) && (
+          <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-1">
+            {transcript && <p className="text-slate-300"><strong>Příkaz:</strong> {transcript}</p>}
+            {responseMsg && <p className="text-emerald-400 font-medium">{responseMsg}</p>}
+          </div>
+        )}
+
+        {/* Dlaždice čidel a zařízení */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 text-slate-300">Připojená zařízení</h2>
+
+          {loading && <p className="text-slate-400">Načítání čidel...</p>}
+          {error && <p className="text-red-400">Chyba: {error}</p>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {devices.map((device) => (
+              <div
+                key={device.id}
+                className="bg-slate-800 p-5 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all shadow-md"
+              >
+                <h3 className="font-bold text-lg text-slate-100 mb-3">{device.name}</h3>
+                
+                <div className="space-y-2">
+                  {device.status?.map((st) => (
+                    <div key={st.code} className="flex justify-between items-center text-sm border-t border-slate-700/50 pt-2">
+                      <span className="text-slate-400 capitalize">{st.code.replace(/_/g, " ")}:</span>
+                      <span className="font-semibold text-slate-200">
+                        {typeof st.value === "boolean" ? (st.value ? "ZAPNUTI" : "VYPNUTO") : String(st.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+
+      </div>
     </main>
   );
 }
