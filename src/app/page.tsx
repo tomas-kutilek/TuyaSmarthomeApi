@@ -22,6 +22,7 @@ export default function Home() {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
+  // Aktualizace času a data
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -47,6 +48,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // Načtení čidel z API
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices");
@@ -75,6 +77,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Hlasový asistent
   const handleAssistantClick = () => {
     if (typeof window === "undefined") return;
 
@@ -235,10 +238,25 @@ export default function Home() {
         }}
       >
         {filteredDevices.map((device) => {
-          const tempVal =
+          // Výpočet reálné teploty
+          const numericTemp =
             device.temperature !== undefined && device.temperature !== null
-              ? (device.temperature / 10).toFixed(1)
+              ? device.temperature / 10
               : null;
+
+          // Vždy jedno desetinné místo (např. 10.0 °C místo 10 °C)
+          const formattedTemp =
+            numericTemp !== null ? numericTemp.toFixed(1) : null;
+
+          // Určení barvy textu podle hodnoty
+          let tempColor = "#ffffff"; // Výchozí bílá (0 až 30 °C)
+          if (numericTemp !== null) {
+            if (numericTemp > 30) {
+              tempColor = "#ef4444"; // Červená nad 30 °C
+            } else if (numericTemp < 0) {
+              tempColor = "#38bdf8"; // Modrá pod 0 °C
+            }
+          }
 
           return (
             <div
@@ -280,19 +298,21 @@ export default function Home() {
                 </span>
               </div>
 
+              {/* Teplota s dynamickou barvou */}
               <div style={{ margin: "auto 0" }}>
                 <div
                   style={{
                     fontSize: "64px",
                     fontWeight: "900",
-                    color: "#fbbf24",
+                    color: tempColor,
                     letterSpacing: "-1px",
                   }}
                 >
-                  {tempVal !== null ? `${tempVal} °C` : "-- °C"}
+                  {formattedTemp !== null ? `${formattedTemp} °C` : "-- °C"}
                 </div>
               </div>
 
+              {/* Vlhkost dole */}
               {device.humidity !== undefined && device.humidity !== null && (
                 <div style={{ fontSize: "20px", color: "#94a3b8" }}>
                   Vlhkost: <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong>
