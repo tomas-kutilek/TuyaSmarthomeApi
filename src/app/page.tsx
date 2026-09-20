@@ -14,6 +14,7 @@ export default function Home() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [timeStr, setTimeStr] = useState<string>("");
   const [dateStr, setDateStr] = useState<string>("");
+  const [statusMsg, setStatusMsg] = useState<string>("");
 
   // Aktualizace hodin a data
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a striktní filtrování zařízení (pouze Obývák, Venku, Dílna)
+  // Načítání a filtrování zařízení (Obývák, Venku, Dílna)
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
@@ -92,7 +93,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Formátování teploty (dělení 10 u celých čísel + čárka)
+  // Formátování teploty
   const formatTemperature = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "--,-";
 
@@ -104,7 +105,7 @@ export default function Home() {
     return temp.toFixed(1).replace(".", ",");
   };
 
-  // Barva teploty (Modrá < 0 °C, Červená > 30 °C, Bílá jinak)
+  // Barva teploty
   const getTemperatureColor = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "#ffffff";
 
@@ -120,6 +121,19 @@ export default function Home() {
 
   // Spuštění Hlasového Asistenta
   const handleAssistantClick = () => {
+    // 1. Pokud běží ve Fully Kiosk Browseru na tabletu, spustí přímo Google Asistenta v Androidu
+    if (typeof window !== "undefined" && (window as unknown as { fully?: { startApplication: (pkg: string) => void } }).fully) {
+      try {
+        (window as unknown as { fully: { startApplication: (pkg: string) => void } }).fully.startApplication(
+          "com.google.android.googlequicksearchbox"
+        );
+      } catch (e) {
+        console.error("Aplikaci Google Asistent se nepodařilo spustit:", e);
+      }
+      return;
+    }
+
+    // 2. Pokud běží v běžném webovém prohlížeči (použije mikrofon prohlížeče)
     const windowWithSpeech = window as unknown as {
       SpeechRecognition?: new () => {
         lang: string;
@@ -152,17 +166,29 @@ export default function Home() {
         recognition.interimResults = false;
 
         recognition.onstart = () => {
-          console.log("Hlasové rozpoznávání spuštěno");
+          setStatusMsg("Poslouchám...");
         };
 
-        recognition.onresult = (event) => {
+        recognition.onresult = async (event) => {
           const transcript = event.results[0][0].transcript;
-          alert(`Rozpoznaný hlasový příkaz: "${transcript}"`);
+          setStatusMsg(`Zpracovávám: "${transcript}"`);
+
+          try {
+            await fetch("/api/command", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ command: transcript }),
+            });
+          } catch (e) {
+            console.error("Chyba při odesílání příkazu:", e);
+          }
+
+          setTimeout(() => setStatusMsg(""), 4000);
         };
 
-        recognition.onerror = (event) => {
-          console.error("Chyba rozpoznávání:", event.error);
-          alert("Povolte prosím přístup k mikrofonu v prohlížeči.");
+        recognition.onerror = () => {
+          setStatusMsg("Chyba mikrofonu.");
+          setTimeout(() => setStatusMsg(""), 3000);
         };
 
         recognition.start();
@@ -170,7 +196,7 @@ export default function Home() {
         console.error(e);
       }
     } else {
-      alert("Rozpoznávání hlasu není v tomto prohlížeči podporováno.");
+      alert("Hlasové rozpoznávání není dostupné v tomto prohlížeči.");
     }
   };
 
@@ -191,7 +217,7 @@ export default function Home() {
         overflow: "hidden",
       }}
     >
-      {/* Horní lišta: Čas, Datum a TLAČÍTKO ASISTENTA na jednom řádku */}
+      {/* Horní lišta: Čas, Datum a TLAČÍTKO ASISTENTA */}
       <header
         style={{
           display: "flex",
@@ -211,30 +237,36 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Tlačítko asistenta vpravo nahoře */}
-        <button
-          onClick={handleAssistantClick}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            backgroundColor: "#262626",
-            color: "#ffffff",
-            fontWeight: "700",
-            fontSize: "16px",
-            padding: "8px 20px",
-            borderRadius: "9999px",
-            border: "1px solid #404040",
-            cursor: "pointer",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
-          }}
-        >
-          <span style={{ fontSize: "18px" }}>🎤</span>
-          <span>Asistent</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {statusMsg && (
+            <span style={{ fontSize: "14px", color: "#38bdf8", fontWeight: "600" }}>
+              {statusMsg}
+            </span>
+          )}
+          <button
+            onClick={handleAssistantClick}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "#262626",
+              color: "#ffffff",
+              fontWeight: "700",
+              fontSize: "16px",
+              padding: "8px 20px",
+              borderRadius: "9999px",
+              border: "1px solid #404040",
+              cursor: "pointer",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <span style={{ fontSize: "18px" }}>🎤</span>
+            <span>Asistent</span>
+          </button>
+        </div>
       </header>
 
-      {/* Prostřední část: 3 velké dlaždice vedle sebe */}
+      {/* Prostřední část: 3 velké dlaždice */}
       <section
         style={{
           display: "flex",
@@ -264,7 +296,6 @@ export default function Home() {
               boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
             }}
           >
-            {/* Online zelená tečka */}
             <div style={{ position: "absolute", top: "18px", right: "18px" }}>
               <span
                 style={{
@@ -278,7 +309,6 @@ export default function Home() {
               />
             </div>
 
-            {/* Název čidla */}
             <h2
               style={{
                 fontSize: "20px",
@@ -292,7 +322,6 @@ export default function Home() {
               {dev.name}
             </h2>
 
-            {/* Velká čísla teploty */}
             <div
               style={{
                 display: "flex",
@@ -315,7 +344,6 @@ export default function Home() {
               <span style={{ fontSize: "36px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
             </div>
 
-            {/* Vlhkost */}
             <div style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", marginBottom: "4px" }}>
               Vlhkost: <span style={{ color: "#ffffff", fontWeight: "700" }}>{dev.humidity ?? "--"} %</span>
             </div>
