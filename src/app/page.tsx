@@ -20,13 +20,43 @@ export default function Home() {
   const [transcript, setTranscript] = useState("");
   const [responseMsg, setResponseMsg] = useState("");
 
+  // Stav pro hodiny a datum
+  const [time, setTime] = useState<string>("");
+  const [date, setDate] = useState<string>("");
+
+  // Aktualizace času a data
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setTime(
+        now.toLocaleTimeString("cs-CZ", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+      setDate(
+        now.toLocaleDateString("cs-CZ", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      );
+    };
+
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Načtení dat z Tuya API
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices");
       if (!res.ok) throw new Error("Chyba při načítání dat");
       const data = await res.json();
-      
+
       if (Array.isArray(data)) {
         setDevices(data);
         setError(null);
@@ -57,7 +87,7 @@ export default function Home() {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Tento prohlížeč nebo prostředí nepodporuje rozpoznávání řeči (Web Speech API). Ujistěte se, že používáte Chrome nebo plně povolený Fully Kiosk Browser s mikrofonem.");
+      alert("Browser nepodporuje Web Speech API.");
       return;
     }
 
@@ -112,73 +142,179 @@ export default function Home() {
     }
   };
 
-  return (
-    <main style={{ padding: "20px", fontFamily: "sans-serif", backgroundColor: "#0f172a", color: "#ffffff", minHeight: "100vh" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        
-        {/* Hlavička a Tlačítko */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#1e293b", padding: "20px", borderRadius: "12px", marginBottom: "20px" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "24px" }}>Tuya Smart Home</h1>
-            <p style={{ margin: "5px 0 0 0", color: "#94a3b8", fontSize: "14px" }}>Nástěnný panel</p>
-          </div>
+  // Filtr pouze pro 3 požadované teploměry
+  const targetNames = ["teploměr dílna", "teploměr obývák", "teplota venku"];
+  const filteredDevices = devices.filter((dev) =>
+    targetNames.some((name) => dev.name.toLowerCase().includes(name))
+  );
 
-          <button
-            onClick={handleAssistantClick}
-            style={{
-              padding: "12px 24px",
-              fontSize: "16px",
-              fontWeight: "bold",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              backgroundColor: listening ? "#ef4444" : "#2563eb",
-              color: "#ffffff",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-            }}
-          >
-            🎤 {listening ? "Poslouchám..." : "Hlasový příkaz"}
-          </button>
+  return (
+    <main
+      style={{
+        padding: "24px",
+        fontFamily: "sans-serif",
+        backgroundColor: "#0f172a",
+        color: "#ffffff",
+        minHeight: "100vh",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Horní lišta s datem, časem a hlasovým tlačítkem */}
+      <div
+        style={{
+          display: "flex",
+          justify: "space-between",
+          alignItems: "center",
+          backgroundColor: "#1e293b",
+          padding: "16px 24px",
+          borderRadius: "16px",
+          marginBottom: "20px",
+          border: "1px solid #334155",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f8fafc" }}>
+            {time || "--:--:--"}
+          </div>
+          <div style={{ fontSize: "14px", color: "#94a3b8", textTransform: "capitalize" }}>
+            {date || "Načítání data..."}
+          </div>
         </div>
 
-        {/* Informace o hlase */}
-        {(transcript || responseMsg) && (
-          <div style={{ backgroundColor: "#1e293b", padding: "15px", borderRadius: "8px", marginBottom: "20px", borderLeft: "4px solid #2563eb" }}>
-            {transcript && <p style={{ margin: "0 0 5px 0" }}><strong>Příkaz:</strong> {transcript}</p>}
-            {responseMsg && <p style={{ margin: 0, color: "#34d399", fontWeight: "bold" }}>{responseMsg}</p>}
-          </div>
-        )}
+        <button
+          onClick={handleAssistantClick}
+          style={{
+            padding: "14px 28px",
+            fontSize: "18px",
+            fontWeight: "bold",
+            borderRadius: "12px",
+            border: "none",
+            cursor: "pointer",
+            backgroundColor: listening ? "#ef4444" : "#2563eb",
+            color: "#ffffff",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          🎤 {listening ? "Poslouchám..." : "Hlasový příkaz"}
+        </button>
+      </div>
 
-        {/* Výpis zařízení */}
-        <h2>Připojená zařízení</h2>
-        {loading && <p>Načítání čidel...</p>}
-        {error && <p style={{ color: "#f87171" }}>Chyba: {error}</p>}
+      {/* Informace o hlasovém příkazu */}
+      {(transcript || responseMsg) && (
+        <div
+          style={{
+            backgroundColor: "#1e293b",
+            padding: "12px 20px",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            borderLeft: "4px solid #2563eb",
+          }}
+        >
+          {transcript && (
+            <p style={{ margin: "0 0 4px 0", fontSize: "14px" }}>
+              <strong>Příkaz:</strong> {transcript}
+            </p>
+          )}
+          {responseMsg && (
+            <p style={{ margin: 0, color: "#34d399", fontWeight: "bold", fontSize: "14px" }}>
+              {responseMsg}
+            </p>
+          )}
+        </div>
+      )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "15px" }}>
-          {devices.map((device) => (
-            <div key={device.id} style={{ backgroundColor: "#1e293b", padding: "15px", borderRadius: "10px", border: "1px solid #334155" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <strong style={{ fontSize: "16px" }}>{device.name}</strong>
-                <span style={{ fontSize: "12px", color: device.online ? "#34d399" : "#f87171" }}>
+      {/* Stav načítání / chyba */}
+      {loading && <p style={{ textAlign: "center", color: "#94a3b8" }}>Načítání čidel...</p>}
+      {error && (
+        <p style={{ color: "#f87171", textAlign: "center" }}>
+          Chyba: {error}
+        </p>
+      )}
+
+      {/* Velká mřížka pro 3 dlaždice vedle sebe */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "20px",
+          flex: 1,
+        }}
+      >
+        {filteredDevices.map((device) => {
+          const tempVal =
+            device.temperature !== undefined && device.temperature !== null
+              ? (device.temperature / 10).toFixed(1)
+              : null;
+
+          return (
+            <div
+              key={device.id}
+              style={{
+                backgroundColor: "#1e293b",
+                padding: "24px",
+                borderRadius: "20px",
+                border: "1px solid #334155",
+                display: "flex",
+                flexDirection: "column",
+                justify: "space-between",
+                alignItems: "center",
+                textAlign: "center",
+                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justify: "space-between",
+                  width: "100%",
+                  alignItems: "center",
+                }}
+              >
+                <h2 style={{ margin: 0, fontSize: "22px", color: "#e2e8f0" }}>
+                  {device.name}
+                </h2>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    backgroundColor: device.online ? "#064e3b" : "#7f1d1d",
+                    color: device.online ? "#34d399" : "#f87171",
+                  }}
+                >
                   {device.online ? "Online" : "Offline"}
                 </span>
               </div>
-              
-              <div style={{ fontSize: "14px", color: "#cbd5e1" }}>
-                {device.temperature !== undefined && device.temperature !== null && (
-                  <div>Teplota: <strong style={{ color: "#fbbf24" }}>{(device.temperature / 10).toFixed(1)} °C</strong></div>
-                )}
-                {device.humidity !== undefined && device.humidity !== null && (
-                  <div>Vlhkost: <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong></div>
-                )}
-                {device.temperature === null && device.humidity === null && (
-                  <div style={{ fontSize: "12px", color: "#64748b" }}>Bez naměřených hodnot</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
 
+              {/* Hlavní velká teplota */}
+              <div style={{ margin: "auto 0" }}>
+                <div
+                  style={{
+                    fontSize: "64px",
+                    fontWeight: "900",
+                    color: "#fbbf24",
+                    letterSpacing: "-1px",
+                  }}
+                >
+                  {tempVal !== null ? `${tempVal} °C` : "-- °C"}
+                </div>
+              </div>
+
+              {/* Vlhkost dole */}
+              {device.humidity !== undefined && device.humidity !== null && (
+                <div style={{ fontSize: "20px", color: "#94a3b8" }}>
+                  Vlhkost:{" "}
+                  <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </main>
   );
