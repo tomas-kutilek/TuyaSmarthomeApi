@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface Device {
   id: string;
@@ -15,7 +15,7 @@ export default function Home() {
   const [timeStr, setTimeStr] = useState<string>("");
   const [dateStr, setDateStr] = useState<string>("");
 
-  // Hodiny a datum
+  // Aktualizace hodin a data
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -39,29 +39,26 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a striktní vyřazení nechtěných zařízení
+  // Načítání a filtrování zařízení
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
       if (res.ok) {
         const data: Device[] = await res.json();
         if (Array.isArray(data)) {
-          // Natvrdo vyfiltrujeme POUZE 3 teploměry
+          // Filtrujeme POUZE Obývák, Venku, Dílna (vyřadíme TV, Vrata atd.)
           const filtered = data.filter((dev) => {
             const nameLower = (dev.name || "").toLowerCase();
             
-            // Okamžitě vyřadit TV, Vrata, Audio, Gateway a cokoliv, co nemá být na displeji
             if (
               nameLower.includes("tv") ||
               nameLower.includes("vrata") ||
               nameLower.includes("audio") ||
-              nameLower.includes("gateway") ||
-              nameLower.includes("remote")
+              nameLower.includes("gateway")
             ) {
               return false;
             }
 
-            // Ponechat jen Obývák, Venku, Dílna
             return (
               nameLower.includes("obý") ||
               nameLower.includes("obyv") ||
@@ -97,7 +94,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Formátování teploty (dělení 10 u čísel nad 80 + čárka)
+  // Formátování teploty
   const formatTemperature = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "--,-";
 
@@ -123,10 +120,10 @@ export default function Home() {
     return "#ffffff"; // Bílá
   };
 
-  // Spuštění Hlasového Asistenta
+  // Hlasový asistent
   const handleAssistantClick = () => {
-    if (typeof window !== "undefined" && (window as any).fully) {
-      (window as any).fully.startApplication("com.google.android.googlequicksearchbox");
+    if (typeof window !== "undefined" && (window as unknown as { fully?: { startApplication: (app: string) => void } }).fully) {
+      (window as unknown as { fully: { startApplication: (app: string) => void } }).fully.startApplication("com.google.android.googlequicksearchbox");
     } else {
       alert("Spouštím asistenta...");
     }
@@ -147,7 +144,7 @@ export default function Home() {
       userSelect: "none",
       overflow: "hidden"
     }}>
-      {/* Horní lišta: Hodiny a Datum na jednom řádku */}
+      {/* Horní lišta: Čas a datum */}
       <header style={{
         display: "flex",
         alignItems: "baseline",
@@ -165,7 +162,7 @@ export default function Home() {
         </p>
       </header>
 
-      {/* Prostřední část: Přesně 3 velké dlaždice vedle sebe */}
+      {/* Prostřední část: 3 velké dlaždice */}
       <section style={{
         display: "flex",
         flexDirection: "row",
@@ -193,7 +190,7 @@ export default function Home() {
               boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
             }}
           >
-            {/* Online zelená tečka vpravo nahoře */}
+            {/* Online zelená tečka */}
             <div style={{ position: "absolute", top: "20px", right: "20px" }}>
               <span style={{
                 display: "block",
@@ -217,7 +214,7 @@ export default function Home() {
               {dev.name}
             </h2>
 
-            {/* Teplota obřími číslicemi */}
+            {/* Teplota */}
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "6px", margin: "auto 0" }}>
               <span style={{
                 fontSize: "84px",
@@ -238,8 +235,8 @@ export default function Home() {
         ))}
       </section>
 
-      {/* Spodní část: Tlačítko Hlasového Asistenta */}
-      <footer style={{ display: "flex", justify: "center", flexShrink: 0 }}>
+      {/* Spodní tlačítko Hlasového Asistenta */}
+      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0 }}>
         <button
           onClick={handleAssistantClick}
           style={{
@@ -257,10 +254,7 @@ export default function Home() {
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)"
           }}
         >
-          <svg style={{ width: "28px", height: "28px", fill: "#60a5fa" }} viewBox="0 0 24 24">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-          </svg>
+          <span style={{ color: "#60a5fa", fontSize: "24px" }}>🎤</span>
           <span>Hlasový asistent</span>
         </button>
       </footer>
