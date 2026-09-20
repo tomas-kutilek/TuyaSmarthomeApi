@@ -39,21 +39,39 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a filtrování zařízení
+  // Načítání a striktní vyřazení nechtěných zařízení
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
       if (res.ok) {
         const data: Device[] = await res.json();
         if (Array.isArray(data)) {
-          // Vyfiltrujeme pouze 3 teploměry (Obývák, Venku, Dílna) podle jejich názvu
-          const allowedKeywords = ["obývák", "obyvak", "venku", "dílna", "dilna"];
+          // Natvrdo vyfiltrujeme POUZE 3 teploměry
           const filtered = data.filter((dev) => {
             const nameLower = (dev.name || "").toLowerCase();
-            return allowedKeywords.some((key) => nameLower.includes(key));
+            
+            // Okamžitě vyřadit TV, Vrata, Audio, Gateway a cokoliv, co nemá být na displeji
+            if (
+              nameLower.includes("tv") ||
+              nameLower.includes("vrata") ||
+              nameLower.includes("audio") ||
+              nameLower.includes("gateway") ||
+              nameLower.includes("remote")
+            ) {
+              return false;
+            }
+
+            // Ponechat jen Obývák, Venku, Dílna
+            return (
+              nameLower.includes("obý") ||
+              nameLower.includes("obyv") ||
+              nameLower.includes("venk") ||
+              nameLower.includes("díl") ||
+              nameLower.includes("diln")
+            );
           });
 
-          // Seřadíme tak, aby byly v pořadí: Obývák, Venku, Dílna (případně použije všechna 3 nalezená)
+          // Seřazení v pořadí: 1. Obývák, 2. Venku, 3. Dílna
           const sorted = filtered.sort((a, b) => {
             const getOrder = (name: string) => {
               const n = name.toLowerCase();
@@ -65,7 +83,7 @@ export default function Home() {
             return getOrder(a.name) - getOrder(b.name);
           });
 
-          setDevices(sorted.length > 0 ? sorted : data.slice(0, 3));
+          setDevices(sorted);
         }
       }
     } catch (err) {
@@ -79,7 +97,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Formátování teploty (dělení 10 u celých čísel nad 80 + čárka)
+  // Formátování teploty (dělení 10 u čísel nad 80 + čárka)
   const formatTemperature = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "--,-";
 
@@ -92,99 +110,160 @@ export default function Home() {
   };
 
   // Barva teploty (Modrá < 0, Červená > 30, Bílá ostatní)
-  const getTemperatureColorClass = (rawTemp: number | null) => {
-    if (rawTemp === null || rawTemp === undefined) return "text-white";
+  const getTemperatureColor = (rawTemp: number | null) => {
+    if (rawTemp === null || rawTemp === undefined) return "#ffffff";
 
     let temp = rawTemp;
     if (Math.abs(temp) > 80 && Number.isInteger(temp)) {
       temp = temp / 10;
     }
 
-    if (temp < 0) return "text-blue-500";
-    if (temp > 30) return "text-red-500";
-    return "text-white";
+    if (temp < 0) return "#3b82f6"; // Modrá
+    if (temp > 30) return "#ef4444"; // Červená
+    return "#ffffff"; // Bílá
   };
 
-  // Vyvolání asistenta v Fully Kiosk / Android
+  // Spuštění Hlasového Asistenta
   const handleAssistantClick = () => {
     if (typeof window !== "undefined" && (window as any).fully) {
-      // Vyvolá systémové okno Google Asistenta v Kiosk módu
       (window as any).fully.startApplication("com.google.android.googlequicksearchbox");
     } else {
-      // Fallback pro standardní prohlížeč
-      if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-        alert("Spouštím mikrofon asistenta...");
-      } else {
-        alert("Asistent je připraven pro Fully Kiosk Kiosk Mode.");
-      }
+      alert("Spouštím asistenta...");
     }
   };
 
   return (
-    <main className="h-screen w-screen bg-black text-white flex flex-col justify-between p-6 select-none overflow-hidden">
+    <div style={{
+      backgroundColor: "#000000",
+      color: "#ffffff",
+      height: "100vh",
+      width: "100vw",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      padding: "24px",
+      boxSizing: "border-box",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      userSelect: "none",
+      overflow: "hidden"
+    }}>
       {/* Horní lišta: Hodiny a Datum na jednom řádku */}
-      <header className="flex items-baseline justify-center gap-6 border-b border-neutral-800 pb-3">
-        <h1 className="text-6xl font-black tracking-tight leading-none text-white">
+      <header style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "center",
+        gap: "24px",
+        borderBottom: "1px solid #262626",
+        paddingBottom: "12px",
+        flexShrink: 0
+      }}>
+        <h1 style={{ fontSize: "64px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
           {timeStr || "00:00"}
         </h1>
-        <p className="text-2xl font-semibold text-gray-400">
+        <p style={{ fontSize: "28px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
           {dateStr}
         </p>
       </header>
 
-      {/* Prostřední část: 3 velké dlaždice vedle sebe přes většinu obrazovky */}
-      <section className="grid grid-cols-3 gap-6 my-auto items-stretch h-[68vh]">
+      {/* Prostřední část: Přesně 3 velké dlaždice vedle sebe */}
+      <section style={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        gap: "20px",
+        height: "60vh",
+        margin: "auto 0",
+        alignItems: "stretch"
+      }}>
         {devices.map((dev) => (
           <div
             key={dev.id}
-            className="bg-neutral-900/90 border-2 border-neutral-800 rounded-3xl p-6 relative shadow-2xl flex flex-col justify-between items-center text-center"
+            style={{
+              flex: "1 1 0px",
+              backgroundColor: "#171717",
+              border: "2px solid #262626",
+              borderRadius: "24px",
+              padding: "24px",
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              alignItems: "center",
+              textAlign: "center",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
+            }}
           >
-            {/* Online zelená tečka */}
-            <div className="absolute top-5 right-5 flex items-center gap-2">
-              <span
-                className={`w-4 h-4 rounded-full ${
-                  dev.online ? "bg-green-500 shadow-[0_0_12px_#22c55e]" : "bg-red-500"
-                }`}
-              />
+            {/* Online zelená tečka vpravo nahoře */}
+            <div style={{ position: "absolute", top: "20px", right: "20px" }}>
+              <span style={{
+                display: "block",
+                width: "16px",
+                height: "16px",
+                borderRadius: "50%",
+                backgroundColor: dev.online ? "#22c55e" : "#ef4444",
+                boxShadow: dev.online ? "0 0 12px #22c55e" : "none"
+              }} />
             </div>
 
-            {/* Název místnosti */}
-            <h2 className="text-xl font-extrabold tracking-widest uppercase text-gray-300 mt-2">
+            {/* Název čidla */}
+            <h2 style={{
+              fontSize: "22px",
+              fontWeight: "800",
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              color: "#d4d4d4",
+              marginTop: "8px"
+            }}>
               {dev.name}
             </h2>
 
-            {/* Velká čísla teploty */}
-            <div className="flex items-baseline justify-center gap-1 my-auto">
-              <span className={`text-8xl font-black tracking-tighter ${getTemperatureColorClass(dev.temperature)}`}>
+            {/* Teplota obřími číslicemi */}
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "6px", margin: "auto 0" }}>
+              <span style={{
+                fontSize: "84px",
+                fontWeight: "900",
+                letterSpacing: "-2px",
+                color: getTemperatureColor(dev.temperature)
+              }}>
                 {formatTemperature(dev.temperature)}
               </span>
-              <span className="text-4xl font-bold text-gray-400">°C</span>
+              <span style={{ fontSize: "38px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
             </div>
 
-            {/* Vlhkost dole na dlaždici */}
-            <div className="text-xl font-semibold text-gray-400 mb-2">
-              Vlhkost: <span className="text-white font-bold">{dev.humidity ?? "--"} %</span>
+            {/* Vlhkost */}
+            <div style={{ fontSize: "22px", fontWeight: "600", color: "#a3a3a3", marginBottom: "8px" }}>
+              Vlhkost: <span style={{ color: "#ffffff", fontWeight: "700" }}>{dev.humidity ?? "--"} %</span>
             </div>
           </div>
         ))}
       </section>
 
       {/* Spodní část: Tlačítko Hlasového Asistenta */}
-      <footer className="flex justify-center pt-2">
+      <footer style={{ display: "flex", justify: "center", flexShrink: 0 }}>
         <button
           onClick={handleAssistantClick}
-          className="flex items-center gap-3 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white font-bold px-8 py-3 rounded-full border border-neutral-700 transition shadow-lg text-lg"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            backgroundColor: "#262626",
+            color: "#ffffff",
+            fontWeight: "700",
+            fontSize: "20px",
+            padding: "14px 40px",
+            borderRadius: "9999px",
+            border: "1px solid #404040",
+            cursor: "pointer",
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)"
+          }}
         >
-          <svg
-            className="w-6 h-6 text-blue-400 fill-current"
-            viewBox="0 0 24 24"
-          >
+          <svg style={{ width: "28px", height: "28px", fill: "#60a5fa" }} viewBox="0 0 24 24">
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
           <span>Hlasový asistent</span>
         </button>
       </footer>
-    </main>
+    </div>
   );
 }
