@@ -39,7 +39,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a striktní filtrování zařízení (pouze Obývák, Venku, Dílna)
+  // Načítání a filtrování zařízení
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
@@ -49,7 +49,6 @@ export default function Home() {
           const filtered = data.filter((dev) => {
             const nameLower = (dev.name || "").toLowerCase();
             
-            // Vyřadíme nechtěná zařízení (TV, vrata, audio atd.)
             if (
               nameLower.includes("tv") ||
               nameLower.includes("vrata") ||
@@ -68,7 +67,6 @@ export default function Home() {
             );
           });
 
-          // Seřazení: 1. Obývák, 2. Venku, 3. Dílna
           const sorted = filtered.sort((a, b) => {
             const getOrder = (name: string) => {
               const n = name.toLowerCase();
@@ -94,7 +92,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Formátování teploty (dělení 10 u celých čísel + desetinná čárka)
+  // Formátování teploty (dělení 10 u celých čísel + čárka)
   const formatTemperature = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "--,-";
 
@@ -106,7 +104,7 @@ export default function Home() {
     return temp.toFixed(1).replace(".", ",");
   };
 
-  // Výpočet barvy (Modrá < 0 °C, Červená > 30 °C, Bílá jinak)
+  // Barva teploty (Modrá < 0 °C, Červená > 30 °C, Bílá jinak)
   const getTemperatureColor = (rawTemp: number | null) => {
     if (rawTemp === null || rawTemp === undefined) return "#ffffff";
 
@@ -115,12 +113,12 @@ export default function Home() {
       temp = temp / 10;
     }
 
-    if (temp < 0) return "#3b82f6"; // Modrá pod nulou
-    if (temp > 30) return "#ef4444"; // Červená nad 30 °C
-    return "#ffffff"; // Bílá mezi 0 a 30 °C
+    if (temp < 0) return "#3b82f6";
+    if (temp > 30) return "#ef4444";
+    return "#ffffff";
   };
 
-  // Spuštění Hlasového Asistenta (pro Fully Kiosk Browser / Android)
+  // Hlasový asistent
   const handleAssistantClick = () => {
     if (
       typeof window !== "undefined" &&
@@ -144,42 +142,42 @@ export default function Home() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "16px 24px",
+        padding: "12px 20px",
         boxSizing: "border-box",
         fontFamily: "system-ui, -apple-system, sans-serif",
         userSelect: "none",
         overflow: "hidden",
       }}
     >
-      {/* Horní lišta: Čas a datum na jednom řádku */}
+      {/* Horní lišta: Čas a datum */}
       <header
         style={{
           display: "flex",
           alignItems: "baseline",
           justifyContent: "center",
-          gap: "20px",
+          gap: "16px",
           borderBottom: "1px solid #262626",
-          paddingBottom: "8px",
+          paddingBottom: "6px",
           flexShrink: 0,
         }}
       >
-        <h1 style={{ fontSize: "56px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
+        <h1 style={{ fontSize: "46px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
           {timeStr || "00:00"}
         </h1>
-        <p style={{ fontSize: "24px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
+        <p style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
           {dateStr}
         </p>
       </header>
 
-      {/* Prostřední část: 3 velké dlaždice vedle sebe */}
+      {/* Prostřední část: 3 velké dlaždice s upravenou výškou */}
       <section
         style={{
           display: "flex",
           flexDirection: "row",
           justifyContent: "space-between",
-          gap: "20px",
-          height: "56vh",
-          margin: "auto 0",
+          gap: "16px",
+          height: "48vh",
+          margin: "8px 0",
           alignItems: "stretch",
         }}
       >
@@ -190,27 +188,27 @@ export default function Home() {
               flex: "1 1 0px",
               backgroundColor: "#171717",
               border: "2px solid #262626",
-              borderRadius: "24px",
-              padding: "20px",
+              borderRadius: "20px",
+              padding: "16px",
               position: "relative",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               alignItems: "center",
               textAlign: "center",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
+              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
             }}
           >
-            {/* Online zelená tečka v rohu */}
-            <div style={{ position: "absolute", top: "18px", right: "18px" }}>
+            {/* Online zelená tečka */}
+            <div style={{ position: "absolute", top: "14px", right: "14px" }}>
               <span
                 style={{
                   display: "block",
-                  width: "14px",
-                  height: "14px",
+                  width: "12px",
+                  height: "12px",
                   borderRadius: "50%",
                   backgroundColor: dev.online ? "#22c55e" : "#ef4444",
-                  boxShadow: dev.online ? "0 0 10px #22c55e" : "none",
+                  boxShadow: dev.online ? "0 0 8px #22c55e" : "none",
                 }}
               />
             </div>
@@ -218,18 +216,18 @@ export default function Home() {
             {/* Název čidla */}
             <h2
               style={{
-                fontSize: "20px",
+                fontSize: "18px",
                 fontWeight: "800",
-                letterSpacing: "1.5px",
+                letterSpacing: "1px",
                 textTransform: "uppercase",
                 color: "#d4d4d4",
-                marginTop: "4px",
+                marginTop: "2px",
               }}
             >
               {dev.name}
             </h2>
 
-            {/* Velké číslice teploty */}
+            {/* Velká čísla teploty */}
             <div
               style={{
                 display: "flex",
@@ -241,7 +239,7 @@ export default function Home() {
             >
               <span
                 style={{
-                  fontSize: "76px",
+                  fontSize: "62px",
                   fontWeight: "900",
                   letterSpacing: "-2px",
                   color: getTemperatureColor(dev.temperature),
@@ -249,11 +247,11 @@ export default function Home() {
               >
                 {formatTemperature(dev.temperature)}
               </span>
-              <span style={{ fontSize: "32px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
+              <span style={{ fontSize: "28px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
             </div>
 
             {/* Vlhkost */}
-            <div style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", marginBottom: "4px" }}>
+            <div style={{ fontSize: "18px", fontWeight: "600", color: "#a3a3a3", marginBottom: "2px" }}>
               Vlhkost: <span style={{ color: "#ffffff", fontWeight: "700" }}>{dev.humidity ?? "--"} %</span>
             </div>
           </div>
@@ -261,7 +259,7 @@ export default function Home() {
       </section>
 
       {/* Spodní tlačítko Hlasového Asistenta */}
-      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0, paddingBottom: "4px" }}>
+      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: "4px", paddingBottom: "6px" }}>
         <button
           onClick={handleAssistantClick}
           style={{
@@ -271,15 +269,15 @@ export default function Home() {
             backgroundColor: "#262626",
             color: "#ffffff",
             fontWeight: "700",
-            fontSize: "18px",
-            padding: "10px 32px",
+            fontSize: "16px",
+            padding: "8px 28px",
             borderRadius: "9999px",
             border: "1px solid #404040",
             cursor: "pointer",
-            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
           }}
         >
-          <span style={{ fontSize: "22px" }}>🎤</span>
+          <span style={{ fontSize: "20px" }}>🎤</span>
           <span>Hlasový asistent</span>
         </button>
       </footer>
