@@ -120,15 +120,57 @@ export default function Home() {
 
   // Spuštění Hlasového Asistenta
   const handleAssistantClick = () => {
-    if (
-      typeof window !== "undefined" &&
-      (window as unknown as { fully?: { startApplication: (app: string) => void } }).fully
-    ) {
-      (window as unknown as { fully: { startApplication: (app: string) => void } }).fully.startApplication(
-        "com.google.android.googlequicksearchbox"
-      );
+    const windowWithSpeech = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        continuous: boolean;
+        interimResults: boolean;
+        onstart: () => void;
+        onresult: (event: { results: Array<Array<{ transcript: string }>> }) => void;
+        onerror: (event: { error: string }) => void;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        continuous: boolean;
+        interimResults: boolean;
+        onstart: () => void;
+        onresult: (event: { results: Array<Array<{ transcript: string }>> }) => void;
+        onerror: (event: { error: string }) => void;
+        start: () => void;
+      };
+    };
+
+    const SpeechRecognition =
+      windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = "cs-CZ";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+          console.log("Hlasové rozpoznávání spuštěno");
+        };
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          alert(`Rozpoznaný hlasový příkaz: "${transcript}"`);
+        };
+
+        recognition.onerror = (event) => {
+          console.error("Chyba rozpoznávání:", event.error);
+          alert("Povolte prosím přístup k mikrofonu v prohlížeči.");
+        };
+
+        recognition.start();
+      } catch (e) {
+        console.error(e);
+      }
     } else {
-      alert("Spouštím hlasového asistenta...");
+      alert("Rozpoznávání hlasu není v tomto prohlížeči podporováno.");
     }
   };
 
@@ -149,7 +191,7 @@ export default function Home() {
         overflow: "hidden",
       }}
     >
-      {/* Horní lišta: Čas, Datum A TLAČÍTKO ASISTENTA na jednom řádku */}
+      {/* Horní lišta: Čas, Datum a TLAČÍTKO ASISTENTA na jednom řádku */}
       <header
         style={{
           display: "flex",
