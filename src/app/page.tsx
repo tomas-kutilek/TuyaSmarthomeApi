@@ -39,7 +39,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítání a filtrování zařízení
+  // Načítání a striktní filtrování zařízení (pouze Obývák, Venku, Dílna)
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
@@ -118,7 +118,7 @@ export default function Home() {
     return "#ffffff";
   };
 
-  // Hlasový asistent
+  // Spuštění Hlasového Asistenta
   const handleAssistantClick = () => {
     if (
       typeof window !== "undefined" &&
@@ -142,42 +142,65 @@ export default function Home() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "12px 20px",
+        padding: "16px 24px",
         boxSizing: "border-box",
         fontFamily: "system-ui, -apple-system, sans-serif",
         userSelect: "none",
         overflow: "hidden",
       }}
     >
-      {/* Horní lišta: Čas a datum */}
+      {/* Horní lišta: Čas, Datum A TLAČÍTKO ASISTENTA na jednom řádku */}
       <header
         style={{
           display: "flex",
-          alignItems: "baseline",
-          justifyContent: "center",
-          gap: "16px",
+          alignItems: "center",
+          justifyContent: "space-between",
           borderBottom: "1px solid #262626",
-          paddingBottom: "6px",
+          paddingBottom: "10px",
           flexShrink: 0,
         }}
       >
-        <h1 style={{ fontSize: "46px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
-          {timeStr || "00:00"}
-        </h1>
-        <p style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
-          {dateStr}
-        </p>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "20px" }}>
+          <h1 style={{ fontSize: "52px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
+            {timeStr || "00:00"}
+          </h1>
+          <p style={{ fontSize: "22px", fontWeight: "600", color: "#a3a3a3", margin: 0 }}>
+            {dateStr}
+          </p>
+        </div>
+
+        {/* Tlačítko asistenta vpravo nahoře */}
+        <button
+          onClick={handleAssistantClick}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "#262626",
+            color: "#ffffff",
+            fontWeight: "700",
+            fontSize: "16px",
+            padding: "8px 20px",
+            borderRadius: "9999px",
+            border: "1px solid #404040",
+            cursor: "pointer",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <span style={{ fontSize: "18px" }}>🎤</span>
+          <span>Asistent</span>
+        </button>
       </header>
 
-      {/* Prostřední část: 3 velké dlaždice s upravenou výškou */}
+      {/* Prostřední část: 3 velké dlaždice vedle sebe */}
       <section
         style={{
           display: "flex",
           flexDirection: "row",
           justifyContent: "space-between",
-          gap: "16px",
-          height: "48vh",
-          margin: "8px 0",
+          gap: "20px",
+          height: "75vh",
+          margin: "auto 0",
           alignItems: "stretch",
         }}
       >
@@ -188,27 +211,27 @@ export default function Home() {
               flex: "1 1 0px",
               backgroundColor: "#171717",
               border: "2px solid #262626",
-              borderRadius: "20px",
-              padding: "16px",
+              borderRadius: "24px",
+              padding: "20px",
               position: "relative",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               alignItems: "center",
               textAlign: "center",
-              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
             }}
           >
             {/* Online zelená tečka */}
-            <div style={{ position: "absolute", top: "14px", right: "14px" }}>
+            <div style={{ position: "absolute", top: "18px", right: "18px" }}>
               <span
                 style={{
                   display: "block",
-                  width: "12px",
-                  height: "12px",
+                  width: "14px",
+                  height: "14px",
                   borderRadius: "50%",
                   backgroundColor: dev.online ? "#22c55e" : "#ef4444",
-                  boxShadow: dev.online ? "0 0 8px #22c55e" : "none",
+                  boxShadow: dev.online ? "0 0 10px #22c55e" : "none",
                 }}
               />
             </div>
@@ -216,12 +239,12 @@ export default function Home() {
             {/* Název čidla */}
             <h2
               style={{
-                fontSize: "18px",
+                fontSize: "20px",
                 fontWeight: "800",
-                letterSpacing: "1px",
+                letterSpacing: "1.5px",
                 textTransform: "uppercase",
                 color: "#d4d4d4",
-                marginTop: "2px",
+                marginTop: "4px",
               }}
             >
               {dev.name}
@@ -239,7 +262,7 @@ export default function Home() {
             >
               <span
                 style={{
-                  fontSize: "62px",
+                  fontSize: "80px",
                   fontWeight: "900",
                   letterSpacing: "-2px",
                   color: getTemperatureColor(dev.temperature),
@@ -247,40 +270,16 @@ export default function Home() {
               >
                 {formatTemperature(dev.temperature)}
               </span>
-              <span style={{ fontSize: "28px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
+              <span style={{ fontSize: "36px", fontWeight: "700", color: "#a3a3a3" }}>°C</span>
             </div>
 
             {/* Vlhkost */}
-            <div style={{ fontSize: "18px", fontWeight: "600", color: "#a3a3a3", marginBottom: "2px" }}>
+            <div style={{ fontSize: "20px", fontWeight: "600", color: "#a3a3a3", marginBottom: "4px" }}>
               Vlhkost: <span style={{ color: "#ffffff", fontWeight: "700" }}>{dev.humidity ?? "--"} %</span>
             </div>
           </div>
         ))}
       </section>
-
-      {/* Spodní tlačítko Hlasového Asistenta */}
-      <footer style={{ display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: "4px", paddingBottom: "6px" }}>
-        <button
-          onClick={handleAssistantClick}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            backgroundColor: "#262626",
-            color: "#ffffff",
-            fontWeight: "700",
-            fontSize: "16px",
-            padding: "8px 28px",
-            borderRadius: "9999px",
-            border: "1px solid #404040",
-            cursor: "pointer",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
-          }}
-        >
-          <span style={{ fontSize: "20px" }}>🎤</span>
-          <span>Hlasový asistent</span>
-        </button>
-      </footer>
     </div>
   );
 }
