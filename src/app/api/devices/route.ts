@@ -40,7 +40,8 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      const path = `/v1.0/devices/${devInfo.id}/status`;
+      // Zde se vracíme k hlavnímu detailu zařízení, který vrací aktuální pole statusů
+      const path = `/v1.0/devices/${devInfo.id}`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -51,13 +52,19 @@ export async function GET() {
 
       const data = await res.json();
       
-      if (data.success && Array.isArray(data.result)) {
+      if (data.success && data.result) {
+        const dev = data.result;
         let rawTemp = 200;
-        for (const st of data.result) {
-          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-            rawTemp = Number(st.value);
+        
+        // Projdeme pole statusů, které zařízení hlásí do cloudu
+        if (Array.isArray(dev.status)) {
+          for (const st of dev.status) {
+            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+              rawTemp = Number(st.value);
+            }
           }
         }
+        
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
         return {
@@ -76,7 +83,7 @@ export async function GET() {
     if (validDevices.length > 0) {
       return NextResponse.json(
         { success: true, devices: validDevices },
-        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'Pragma': 'no-cache' } }
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } }
       );
     }
 
@@ -85,7 +92,7 @@ export async function GET() {
     const liveFallback = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 21.5 },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 22.5 },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 24.7 }
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 23.6 }
     ];
 
     return NextResponse.json(
