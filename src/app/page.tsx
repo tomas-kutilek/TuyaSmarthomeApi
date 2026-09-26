@@ -22,6 +22,7 @@ export default function Home() {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
+  // Automatické hodinové hodiny
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -47,6 +48,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // Funkce pro stažení dat z backendu
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
@@ -78,6 +80,7 @@ export default function Home() {
     }
   };
 
+  // Automatické načítání při spuštění a pak každých 10 sekund na pozadí
   useEffect(() => {
     fetchDevices();
     const interval = setInterval(fetchDevices, 10000);
@@ -153,12 +156,19 @@ export default function Home() {
     }
   };
 
-  const targetNames = ["teploměr dílna", "teploměr obývák", "teplota venku"];
+  // Automatické čištění systémových chyb a ID z názvu
+  const cleanDeviceName = (name: string) => {
+    return name
+      .replace(/\(.*\)/g, "")
+      .replace(/IoT Core.*/gi, "")
+      .trim();
+  };
+
+  const targetKeywords = ["obývák", "obyvak", "venku", "dílna", "dilna"];
   const matchedDevices = devices.filter((dev) =>
-    targetNames.some((name) => dev.name.toLowerCase().includes(name))
+    targetKeywords.some((key) => dev.name.toLowerCase().includes(key))
   );
 
-  // Pokud filtr podle názvu nic nenajde, zobrazíme všechna načtená zařízení
   const displayDevices = matchedDevices.length > 0 ? matchedDevices : devices;
 
   return (
@@ -264,7 +274,8 @@ export default function Home() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: displayDevices.length > 0 ? "repeat(auto-fit, minmax(280px, 1fr))" : "1fr",
+          gridTemplateColumns:
+            displayDevices.length > 0 ? "repeat(auto-fit, minmax(280px, 1fr))" : "1fr",
           gap: "20px",
           flex: 1,
         }}
@@ -286,6 +297,10 @@ export default function Home() {
               tempColor = "#38bdf8";
             }
           }
+
+          // Pokud čidlo vrátí platnou hodnotu, vyhodnotí ho jako aktivní
+          const isWorking =
+            device.online || (numericTemp !== null && numericTemp > -50);
 
           return (
             <div
@@ -311,19 +326,26 @@ export default function Home() {
                   alignItems: "center",
                 }}
               >
-                <h2 style={{ margin: 0, fontSize: "22px", color: "#e2e8f0" }}>
-                  {device.name}
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                    color: "#e2e8f0",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {cleanDeviceName(device.name)}
                 </h2>
                 <span
                   style={{
                     fontSize: "12px",
                     padding: "4px 8px",
                     borderRadius: "6px",
-                    backgroundColor: device.online ? "#064e3b" : "#7f1d1d",
-                    color: device.online ? "#34d399" : "#f87171",
+                    backgroundColor: isWorking ? "#064e3b" : "#7f1d1d",
+                    color: isWorking ? "#34d399" : "#f87171",
                   }}
                 >
-                  {device.online ? "Online" : "Offline"}
+                  {isWorking ? "Online" : "Offline"}
                 </span>
               </div>
 
