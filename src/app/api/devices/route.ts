@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
+// Vynucení dynamického zpracování bez vyrovnávací paměti (cache)
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const CLIENT_ID = process.env.TUYA_CLIENT_ID || "";
-const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || "";
-// Zkontrolujte, zda máte v Tuya nastavenou správnou oblast (EU je https://openapi.tuyaeu.com)
+// Přímé nastavení vašich klíčů z Tuya IoT Platform
+const CLIENT_ID = process.env.TUYA_CLIENT_ID || "he78du5jyu7p4n4rqqjd";
+const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || "5242e2bfce2f40c58690d40638f044c6";
 const BASE_URL = process.env.TUYA_ENDPOINT || "https://openapi.tuyaeu.com";
 
 // Funkce pro výpočet podpisu (Sign) podle specifikace Tuya API v2
@@ -30,7 +31,7 @@ function calcSign(
     .toUpperCase();
 }
 
-// Získání přístupového tokenu z Tuya
+// Získání přístupového tokenu z Tuya API
 async function getAccessToken() {
   const timestamp = Date.now().toString();
   const method = "GET";
@@ -58,20 +59,16 @@ async function getAccessToken() {
 
   const data = await res.json();
   if (!data.success) {
-    throw new Error(data.msg || "Chyba při získávání tokenu");
+    throw new Error(data.msg || "Chyba při získávání tokenu z Tuya");
   }
   return data.result.access_token;
 }
 
 export async function GET() {
   try {
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      throw new Error("Chybí TUYA_CLIENT_ID nebo TUYA_CLIENT_SECRET v proměnných prostředí.");
-    }
-
     const token = await getAccessToken();
 
-    // Načtení seznamu všech zařízení z vašich spárovaných účtů
+    // Načtení seznamu všech spárovaných zařízení
     const listUrl = "/v1.0/iot-01/associated-users/devices";
     const timestamp = Date.now().toString();
     const listSign = calcSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, "GET", listUrl);
@@ -95,7 +92,7 @@ export async function GET() {
 
     const rawDevices = devData.result?.devices || devData.result || [];
 
-    // Získání ŽIVÉHO STATUSU (teploty a vlhkosti) pro každé zařízení zvlášť
+    // Získání ŽIVÉHO STATUSU (teploty a vlhkosti) pro každé zařízení
     const formattedDevices = await Promise.all(
       rawDevices.map(async (dev: any) => {
         const statusUrl = `/v1.0/devices/${dev.id}/status`;
@@ -122,7 +119,7 @@ export async function GET() {
           console.error(`Chyba načítání statusu pro ${dev.id}:`, e);
         }
 
-        // Hledání klíčů pro teplotu a vlhkost ze statusu
+        // Vyhledání klíčů pro teplotu a vlhkost v živém statusu
         const tempItem = statusList.find(
           (s: any) =>
             s.code === "va_temperature" ||
