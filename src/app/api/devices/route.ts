@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// Přístupové údaje a oficiální evropský endpoint pre Tuya OpenAPI
 const CLIENT_ID = process.env.TUYA_CLIENT_ID || 'pasjsrhrnvpfk73mrqrn';
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || '1398c1d5b62842aeb3502abee069af89';
 const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com';
 
-// Pomocná funkce pro vygenerování HMAC-SHA256 podpisu
 function generateSign(
   clientId: string,
   secret: string,
@@ -27,7 +25,6 @@ function generateSign(
     .toUpperCase();
 }
 
-// Získání přístupového tokenu z Tuya API
 async function getAccessToken() {
   const timestamp = Date.now().toString();
   const path = '/v1.0/token?grant_type=1';
@@ -56,14 +53,13 @@ async function getAccessToken() {
   return data.result.access_token;
 }
 
-// GET endpoint pro načtení seznamu zařízení
 export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
     
-    // Načtení seznamu zařízení
-    const path = '/v1.0/devices?page_no=1&page_size=100'; 
+    // Endpoint pro Smart Home PaaS rozhraní (načtení zařízení propojených s aplikací)
+    const path = '/v1.3/iot-03/devices'; 
     const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -86,6 +82,27 @@ export async function GET() {
     const data = await res.json();
 
     if (!data.success) {
+      // Pokud v1.3 vrátí chybu, zkusíme záložní Smart Home endpoint /v1.0/smart/home/devices
+      const altPath = '/v1.0/devices?page_no=1&page_size=100';
+      const altSign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', altPath);
+      const altRes = await fetch(`${BASE_URL}${altPath}`, {
+        method: 'GET',
+        headers: {
+          client_id: CLIENT_ID,
+          access_token: token,
+          sign: altSign,
+          t: timestamp,
+          sign_method: 'HMAC-SHA256',
+        },
+        cache: 'no-store',
+      });
+      const altData = await altRes.json();
+      if (altData.success) {
+        return NextResponse.json({
+          success: true,
+          devices: altData.result?.devices || altData.result || [],
+        });
+      }
       return NextResponse.json({ error: `Tuya API Error (${data.code}): ${data.msg}` }, { status: 400 });
     }
 
