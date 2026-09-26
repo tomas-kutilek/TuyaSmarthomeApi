@@ -40,12 +40,11 @@ export default function Dashboard() {
       gap: '20px'
     }}>
       {devices.map((device) => {
-        // Barva podle teploty: < 0 modrá, > 25 červená, jinak bílá/výchozí
         let tempColor = '#ffffff';
         if (device.temperature < 0) {
-          tempColor = '#60a5fa'; // modrá
+          tempColor = '#60a5fa'; // modrá pro mínusové teploty
         } else if (device.temperature > 25) {
-          tempColor = '#f87171'; // červená
+          tempColor = '#f87171'; // červená pro teploty nad 25 °C
         }
 
         return (
@@ -58,20 +57,36 @@ export default function Dashboard() {
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-            flex: 1
+            flex: 1,
+            position: 'relative'
           }}>
-            {/* Název místnosti */}
-            <div style={{
-              fontSize: '32px',
-              fontWeight: 'bold',
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              color: '#94a3b8'
-            }}>
-              {device.name}
+            {/* Levá strana: Název místnosti a stav online/offline */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{
+                fontSize: '32px',
+                fontWeight: 'bold',
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                color: '#94a3b8'
+              }}>
+                {device.name}
+              </div>
+              <div>
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  backgroundColor: device.online ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                  color: device.online ? '#4ade80' : '#f87171',
+                  border: `1px solid ${device.online ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                }}>
+                  {device.online ? '● Online' : '● Offline'}
+                </span>
+              </div>
             </div>
 
-            {/* Velká hodnota teploty */}
+            {/* Pravá strana: Velká hodnota teploty */}
             <div style={{
               fontSize: '56px',
               fontWeight: '900',
