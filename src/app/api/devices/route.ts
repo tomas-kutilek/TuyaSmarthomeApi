@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
+// Trvalé přístupové údaje z projektu Domacnost-PaaS a evropský PaaS endpoint
 const CLIENT_ID = process.env.TUYA_CLIENT_ID || 'pasjsrhrnvpfk73mrqrn';
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || '1398c1d5b62842aeb3502abee069af89';
-const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com';
+const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeurope.com';
 
-// Pomocná funkce pro vygenerování podpisu (HMAC-SHA256) podle požadavků Tuya API
+// Pomocná funkce pro vygenerování HMAC-SHA256 podpisu
 function generateSign(
   clientId: string,
   secret: string,
@@ -26,7 +27,7 @@ function generateSign(
     .toUpperCase();
 }
 
-// Funkce pro získání nového Access Tokenu
+// Získání přístupového tokenu z Tuya API
 async function getAccessToken() {
   const timestamp = Date.now().toString();
   const path = '/v1.0/token?grant_type=1';
@@ -50,13 +51,13 @@ async function getAccessToken() {
   return data.result.access_token;
 }
 
-// GET endpoint - načtení všech zařízení
+// GET endpoint pro načtení seznamu zařízení
 export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
     
-    // Univerzální endpoint pro výpis zařízení v projektu
+    // Univerzální endpoint pro načtení zařízení
     const path = '/v1.0/devices?page_no=1&page_size=100'; 
     const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
