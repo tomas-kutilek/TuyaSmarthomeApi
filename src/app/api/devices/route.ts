@@ -42,7 +42,8 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      const path = `/v1.0/devices/${devInfo.id}/status`;
+      // Používáme ověřený hlavní detail zařízení
+      const path = `/v1.0/devices/${devInfo.id}`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -53,20 +54,25 @@ export async function GET() {
 
       const data = await res.json();
       
-      if (data.success && Array.isArray(data.result)) {
+      if (data.success && data.result) {
+        const dev = data.result;
         let rawTemp = 200;
-        for (const st of data.result) {
-          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-            rawTemp = Number(st.value);
+        
+        if (Array.isArray(dev.status)) {
+          for (const st of dev.status) {
+            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+              rawTemp = Number(st.value);
+            }
           }
         }
+        
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
         return {
           id: devInfo.id,
           name: devInfo.name,
           online: temperature !== 200,
-          temperature: temperature
+          temperature: temperature !== 200 ? temperature : 0
         };
       }
       
