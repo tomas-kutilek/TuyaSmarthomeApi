@@ -57,12 +57,16 @@ export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
-    
-    // Endpoint pro Smart Home PaaS rozhraní (načtení zařízení propojených s aplikací)
-    const path = '/v1.3/iot-03/devices'; 
-    const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
-    const res = await fetch(`${BASE_URL}${path}`, {
+    // 1. Zjistíme UID propojeného uživatele z aplikace (Smart Home User)
+    const userPath = '/v1.0/apps/users'; 
+    // Pokud tento endpoint vyžaduje app schema, zkusíme přímo získat zařízení propojené s projektem
+    // Používáme Smart Home PaaS endpoint bez vazby na IoT Core quota
+    const path = '/v1.0/smart/home/devices'; 
+    
+    let sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
+
+    let res = await fetch(`${BASE_URL}${path}`, {
       method: 'GET',
       headers: {
         client_id: CLIENT_ID,
@@ -74,17 +78,14 @@ export async function GET() {
       cache: 'no-store',
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      return NextResponse.json({ error: `Tuya HTTP ${res.status}: ${errText}` }, { status: res.status });
-    }
+    let data = await res.json();
 
-    const data = await res.json();
-
+    // Pokud Smart Home endpoint vrátí specifikaci nebo zzkusíme alternativní výpis
     if (!data.success) {
-      // Pokud v1.3 vrátí chybu, zkusíme záložní Smart Home endpoint /v1.0/smart/home/devices
-      const altPath = '/v1.0/devices?page_no=1&page_size=100';
+      // Záložní Smart Home PaaS v2 endpoint
+      const altPath = '/v2.0/cloud/thing/device';
       const altSign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', altPath);
+      
       const altRes = await fetch(`${BASE_URL}${altPath}`, {
         method: 'GET',
         headers: {
@@ -97,13 +98,18 @@ export async function GET() {
         cache: 'no-store',
       });
       const altData = await altRes.json();
+
       if (altData.success) {
         return NextResponse.json({
           success: true,
-          devices: altData.result?.devices || altData.result || [],
+          devices: altData.result || [],
         });
       }
-      return NextResponse.json({ error: `Tuya API Error (${data.code}): ${data.msg}` }, { status: 400 });
+
+      return NextResponse.json(
+        { error: `Tuya API Error (${data.code}): ${data.msg}` },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({
