@@ -58,15 +58,15 @@ export async function GET() {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
-    // ID vašich zařízení z portálu Tuya pro přímý a rychlý výpis
+    // Přesná ID vašich zařízení z Tuya portálu
     const deviceIds = [
       'bf524b00e3661af2bd7yjp', // Teploměr dílna
       'bf66c0ae13f3dbf851tc1z', // Teploměr obývák
       'bfa1b8eb8bda1a3781kddf'  // Teplota venku
     ];
 
-    // Načtení detailů a stavů pro každé zařízení přímo
     const devicePromises = deviceIds.map(async (deviceId) => {
+      // Použijeme endpoint pro standardní vlastnosti/stav zařízení
       const path = `/v1.0/devices/${deviceId}`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -83,11 +83,36 @@ export async function GET() {
       });
 
       const data = await res.json();
-      return data.success ? data.result : null;
+      if (data.success && data.result) {
+        return data.result;
+      }
+      return null;
     });
 
     const results = await Promise.all(devicePromises);
     const validDevices = results.filter((dev) => dev !== null);
+
+    if (validDevices.length === 0) {
+      // Fallback: Pokud by přímé ID selhalo, zkusíme obecný endpoint spárovaných zařízení
+      const fallbackPath = '/v1.0/devices?page_no=1&page_size=100';
+      const fallbackSign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', fallbackPath);
+      const fallbackRes = await fetch(`${BASE_URL}${fallbackPath}`, {
+        method: 'GET',
+        headers: {
+          client_id: CLIENT_ID,
+          access_token: token,
+          sign: fallbackSign,
+          t: timestamp,
+          sign_method: 'HMAC-SHA256',
+        },
+        cache: 'no-store',
+      });
+      const fallbackData = await fallbackRes.json();
+      if (fallbackData.success && fallbackData.result) {
+        const list = fallbackData.result.devices || fallbackData.result;
+        return NextResponse.json({ success: true, devices: list });
+      }
+    }
 
     return NextResponse.json({
       success: true,
