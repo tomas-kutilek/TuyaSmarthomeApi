@@ -40,8 +40,8 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      // Endpoint pro status zařízení v Tuya Cloud API
-      const path = `/v1.0/devices/${devInfo.id}/status`;
+      // Endpoint /v1.0/devices/{id} vrací kompletní detaily včetně aktuálního stavu online a hodnot
+      const path = `/v1.0/devices/${devInfo.id}`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -52,20 +52,22 @@ export async function GET() {
 
       const data = await res.json();
       
-      if (data.success && Array.isArray(data.result)) {
+      if (data.success && data.result) {
+        const dev = data.result;
         let rawTemp = 200;
-        for (const st of data.result) {
-          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-            rawTemp = Number(st.value);
+        if (Array.isArray(dev.status)) {
+          for (const st of dev.status) {
+            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+              rawTemp = Number(st.value);
+            }
           }
         }
-        // Pokud Tuya posílá celá čísla vynásobená deseti (např. 226 -> 22.6)
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
         return {
           id: devInfo.id,
           name: devInfo.name,
-          online: true,
+          online: dev.online ?? false, // Načítá reálný stav online/offline přímo z Tuya
           temperature: temperature
         };
       }
@@ -81,11 +83,11 @@ export async function GET() {
 
     throw new Error('Empty devices');
   } catch (error) {
-    // Pokud cloud selže, vrátíme aktuálně platné hodnoty odpovídající vašemu mobilu
+    // Záložní stav v případě výpadku cloudu
     const liveFallback = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 21.5 },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 22.5 },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 22.6 }
+      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: false, temperature: 21.5 },
+      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: false, temperature: 22.5 },
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: false, temperature: 22.6 }
     ];
 
     return NextResponse.json({ success: true, devices: liveFallback });
