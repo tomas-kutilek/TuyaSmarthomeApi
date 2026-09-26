@@ -5,7 +5,7 @@ const CLIENT_ID = process.env.TUYA_CLIENT_ID || 'pasjsrhrnvpfk73mrqrn';
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || '1398c1d5b62842aeb3502abee069af89';
 const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com';
 
-// Pomocná funkce pro vygenerování podpisu (HMAC-SHA256)
+// Pomocná funkce pro vygenerování podpisu (HMAC-SHA256) podle požadavků Tuya API
 function generateSign(
   clientId: string,
   secret: string,
@@ -26,7 +26,7 @@ function generateSign(
     .toUpperCase();
 }
 
-// Získání platného Access Tokenu
+// Funkce pro získání nového Access Tokenu
 async function getAccessToken() {
   const timestamp = Date.now().toString();
   const path = '/v1.0/token?grant_type=1';
@@ -50,14 +50,14 @@ async function getAccessToken() {
   return data.result.access_token;
 }
 
-// GET endpoint - načtení všech zařízení pro Smart Home PaaS
+// GET endpoint - načtení všech zařízení
 export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
     
-    // Smart Home PaaS API endpoint pro načtení všech spárovaných zařízení
-    const path = '/v1.0/users/devices'; 
+    // Univerzální endpoint pro výpis zařízení v projektu
+    const path = '/v1.0/devices?page_no=1&page_size=100'; 
     const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -80,7 +80,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      devices: data.result || [],
+      devices: data.result?.devices || data.result || [],
     });
   } catch (error: any) {
     return NextResponse.json(
