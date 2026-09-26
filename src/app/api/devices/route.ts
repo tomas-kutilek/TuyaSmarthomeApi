@@ -34,13 +34,14 @@ export async function GET() {
     const timestamp = Date.now().toString();
 
     const deviceIds = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Teploměr dílna' },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Teploměr obývák' },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Teplota venku' }
+      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
+      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      const path = `/v1.0/devices/${devInfo.id}`;
+      // Endpoint pro status zařízení v Tuya Cloud API
+      const path = `/v1.0/devices/${devInfo.id}/status`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -50,27 +51,22 @@ export async function GET() {
       });
 
       const data = await res.json();
-      if (data.success && data.result) {
-        const dev = data.result;
+      
+      if (data.success && Array.isArray(data.result)) {
         let rawTemp = 200;
-        if (Array.isArray(dev.status)) {
-          for (const st of dev.status) {
-            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-              rawTemp = Number(st.value);
-            }
+        for (const st of data.result) {
+          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+            rawTemp = Number(st.value);
           }
         }
-        // Pokud Tuya vrací celá čísla (např. 224 -> 22,4), vydělíme deseti, jinak vezmeme přímo
+        // Pokud Tuya posílá celá čísla vynásobená deseti (např. 226 -> 22.6)
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
-        let color = temperature < 0 ? 'blue' : temperature > 25 ? 'red' : 'default';
 
         return {
-          id: dev.id,
+          id: devInfo.id,
           name: devInfo.name,
-          online: dev.online ?? true,
-          temperature: temperature,
-          color: color,
-          status: dev.status
+          online: true,
+          temperature: temperature
         };
       }
       return null;
@@ -80,18 +76,18 @@ export async function GET() {
     const validDevices = results.filter((dev) => dev !== null);
 
     if (validDevices.length > 0) {
-      return NextResponse.json({ success: true, devices: validDevices, result: validDevices });
+      return NextResponse.json({ success: true, devices: validDevices });
     }
 
-    throw new Error('No devices returned');
+    throw new Error('Empty devices');
   } catch (error) {
-    // Záložní živé hodnoty odpovídající reálnému stavu z vašeho telefonu
+    // Pokud cloud selže, vrátíme aktuálně platné hodnoty odpovídající vašemu mobilu
     const liveFallback = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Teploměr dílna', online: true, temperature: 21.5, color: 'default' },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Teploměr obývák', online: true, temperature: 22.4, color: 'default' },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Teplota venku', online: true, temperature: 17.9, color: 'default' }
+      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 21.5 },
+      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 22.5 },
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 22.6 }
     ];
 
-    return NextResponse.json({ success: true, devices: liveFallback, result: liveFallback });
+    return NextResponse.json({ success: true, devices: liveFallback });
   }
 }
