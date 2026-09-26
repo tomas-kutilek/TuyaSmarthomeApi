@@ -19,13 +19,13 @@ async function getAccessToken() {
   const path = '/v1.0/token?grant_type=1';
   const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = vyzkousejFetch(`${BASE_URL}${path}`, {
     method: 'GET',
     headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
     cache: 'no-store',
   });
 
-  const data = await res.json();
+  const data = await (await res).json();
   if (!data.success) {
     console.error('Tuya Token Error:', data);
     throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
@@ -33,37 +33,51 @@ async function getAccessToken() {
   return data.result.access_token;
 }
 
+async function vyzkousejFetch(url: string, options: any) {
+  return fetch(url, options);
+}
+
 export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
-    const deviceIds = [
+    // Použijeme endpoint pro získání informací o zařízení pomocí standardního příkazu
+    const targetDevices = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
       { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
     ];
 
-    const devicePromises = deviceIds.map(async (devInfo) => {
+    const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
         const path = `/v1.0/devices/${devInfo.id}`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
         const res = await fetch(`${BASE_URL}${path}`, {
           method: 'GET',
-          headers: { client_id: CLIENT_ID, access_token: token, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
+          headers: {
+            client_id: CLIENT_ID,
+            access_token: token,
+            sign: sign,
+            t: timestamp,
+            sign_method: 'HMAC-SHA256'
+          },
           cache: 'no-store',
         });
 
         const data = await res.json();
-        
+        console.log(`Device data for ${devInfo.name}:`, JSON.stringify(data));
+
         if (data.success && data.result) {
           const dev = data.result;
           let rawTemp = 0;
           let foundTemp = false;
-          
-          if (Array.isArray(dev.status)) {
-            for (const st of dev.status) {
+
+          // Procházení statusu zařízení
+          const statusList = dev.status || dev.sub_devices_status || [];
+          if (Array.isArray(statusList)) {
+            for (const st of statusList) {
               if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature', 'ambient_temperature'].includes(st.code)) {
                 rawTemp = Number(st.value);
                 foundTemp = true;
@@ -79,29 +93,26 @@ export async function GET() {
             online: dev.online ?? true,
             temperature: foundTemp ? temperature : 0
           };
-        } else {
-          console.error(`Tuya Device API Error for ${devInfo.name}:`, data);
         }
       } catch (err) {
-        console.error(`Fetch error for device ${devInfo.name}:`, err);
+        console.error(`Error fetching ${devInfo.name}:`, err);
       }
-      
+
       return {
         id: devInfo.id,
         name: devInfo.name,
         online: false,
         temperature: 0
       };
-    });
-
-    const validDevices = await Promise.all(devicePromises);
+    }));
 
     return NextResponse.json(
-      { success: true, devices: validDevices },
-      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'Pragma': 'no-cache' } }
+      { success: true, devices: results },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
     );
+
   } catch (error: any) {
-    console.error('Global API Route Error:', error.message);
+    console.error('API Route Error:', error.message);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
