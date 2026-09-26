@@ -22,7 +22,7 @@ export default function Home() {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
-  // Automatické hodinové hodiny
+  // Hodiny a datum v reálném čase
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -48,10 +48,17 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Funkce pro stažení dat z backendu
+  // Automatické stahování živých dat z backendu
   const fetchDevices = async () => {
     try {
-      const res = await fetch("/api/devices", { cache: "no-store" });
+      // Vynucení stažení aktuálních dat přidáním razítka ?t=... (obchází cache prohlížeče)
+      const res = await fetch(`/api/devices?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          Pragma: "no-cache",
+          "Cache-Control": "no-cache",
+        },
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -80,7 +87,7 @@ export default function Home() {
     }
   };
 
-  // Automatické načítání při spuštění a pak každých 10 sekund na pozadí
+  // Načíst při spuštění a pak automaticky každých 10 sekund
   useEffect(() => {
     fetchDevices();
     const interval = setInterval(fetchDevices, 10000);
@@ -156,7 +163,7 @@ export default function Home() {
     }
   };
 
-  // Automatické čištění systémových chyb a ID z názvu
+  // Vyčištění názvu od chybových systémových zpráv z Tuya cloudu
   const cleanDeviceName = (name: string) => {
     return name
       .replace(/\(.*\)/g, "")
@@ -184,6 +191,7 @@ export default function Home() {
         flexDirection: "column",
       }}
     >
+      {/* Horní lišta: Čas + Hlasový asistent */}
       <div
         style={{
           display: "flex",
@@ -226,6 +234,7 @@ export default function Home() {
         </button>
       </div>
 
+      {/* Stav hlasového příkazu */}
       {(transcript || responseMsg) && (
         <div
           style={{
@@ -271,6 +280,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Mřížka s teploměry */}
       <div
         style={{
           display: "grid",
@@ -298,7 +308,6 @@ export default function Home() {
             }
           }
 
-          // Pokud čidlo vrátí platnou hodnotu, vyhodnotí ho jako aktivní
           const isWorking =
             device.online || (numericTemp !== null && numericTemp > -50);
 
