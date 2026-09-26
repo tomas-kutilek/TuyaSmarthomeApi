@@ -39,7 +39,7 @@ export default function Dashboard() {
   return (
     <main style={{ 
       margin: 0, 
-      padding: '24px', 
+      padding: '16px', 
       background: '#0f172a', 
       height: '100vh', 
       width: '100vw', 
@@ -53,7 +53,7 @@ export default function Dashboard() {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '24px', 
+        gap: '16px', 
         flex: 1,
         width: '100%',
         height: '100%'
@@ -68,44 +68,46 @@ export default function Dashboard() {
               key={device.id}
               style={{
                 background: '#1e293b',
-                borderRadius: '24px',
-                padding: '32px',
+                borderRadius: '20px',
+                padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-start',
+                alignItems: 'flex-start',
                 border: '1px solid #334155',
                 boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
                 height: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                overflow: 'hidden'
               }}
             >
-              <div>
-                <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                  {device.name.toUpperCase()}
-                </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
-                  <span
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: device.online ? '#4ade80' : '#f87171',
-                      display: 'inline-block',
-                    }}
-                  />
-                  <span style={{ fontSize: '16px', color: device.online ? '#4ade80' : '#f87171', fontWeight: '600' }}>
-                    {device.online ? 'Online' : 'Offline'}
-                  </span>
-                </div>
+              <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 'bold', letterSpacing: '1px' }}>
+                {device.name.toUpperCase()}
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                <span
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: device.online ? '#4ade80' : '#f87171',
+                    display: 'inline-block',
+                  }}
+                />
+                <span style={{ fontSize: '14px', color: device.online ? '#4ade80' : '#f87171', fontWeight: '600' }}>
+                  {device.online ? 'Online' : 'Offline'}
+                </span>
               </div>
               <div style={{ 
-                fontSize: 'clamp(48px, 6vw, 76px)', 
+                fontSize: 'clamp(42px, 7vw, 84px)', 
                 fontWeight: 'bold', 
                 color: tempColor,
-                textAlign: 'right',
+                width: '100%',
+                textAlign: 'center',
+                margin: 'auto 0',
                 lineHeight: 1
               }}>
-                {device.temperature.toFixed(1)} <span style={{ fontSize: '0.6em', fontWeight: 'normal' }}>°C</span>
+                {device.temperature.toFixed(1)} <span style={{ fontSize: '0.5em', fontWeight: 'normal' }}>°C</span>
               </div>
             </div>
           );
