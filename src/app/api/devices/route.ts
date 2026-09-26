@@ -19,13 +19,13 @@ async function getAccessToken() {
   const path = '/v1.0/token?grant_type=1';
   const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
 
-  const res = vyzkousejFetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     method: 'GET',
     headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
     cache: 'no-store',
   });
 
-  const data = await (await res).json();
+  const data = await res.json();
   if (!data.success) {
     console.error('Tuya Token Error:', data);
     throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
@@ -33,16 +33,11 @@ async function getAccessToken() {
   return data.result.access_token;
 }
 
-async function vyzkousejFetch(url: string, options: any) {
-  return fetch(url, options);
-}
-
 export async function GET() {
   try {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
-    // Použijeme endpoint pro získání informací o zařízení pomocí standardního příkazu
     const targetDevices = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
@@ -74,7 +69,6 @@ export async function GET() {
           let rawTemp = 0;
           let foundTemp = false;
 
-          // Procházení statusu zařízení
           const statusList = dev.status || dev.sub_devices_status || [];
           if (Array.isArray(statusList)) {
             for (const st of statusList) {
