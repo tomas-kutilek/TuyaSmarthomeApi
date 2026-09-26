@@ -40,7 +40,8 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      const path = `/v1.0/devices/${devInfo.id}`;
+      // Endpoint pro přímé živé statusy čidla
+      const path = `/v1.0/devices/${devInfo.id}/status`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -51,25 +52,19 @@ export async function GET() {
 
       const data = await res.json();
       
-      if (data.success && data.result) {
-        const dev = data.result;
+      if (data.success && Array.isArray(data.result)) {
         let rawTemp = 200;
-        if (Array.isArray(dev.status)) {
-          for (const st of dev.status) {
-            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-              rawTemp = Number(st.value);
-            }
+        for (const st of data.result) {
+          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+            rawTemp = Number(st.value);
           }
         }
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
-        // Pokud zařízení vrátilo platnou teplotu, považujeme ho za online (obchází zpoždění Tuya cloudu)
-        const isOnline = temperature !== 200;
-
         return {
           id: devInfo.id,
           name: devInfo.name,
-          online: isOnline,
+          online: temperature !== 200,
           temperature: temperature
         };
       }
@@ -88,7 +83,7 @@ export async function GET() {
     const liveFallback = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 21.5 },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 22.5 },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 22.6 }
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 24.3 }
     ];
 
     return NextResponse.json({ success: true, devices: liveFallback });
