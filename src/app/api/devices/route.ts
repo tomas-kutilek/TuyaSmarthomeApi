@@ -58,63 +58,40 @@ export async function GET() {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
-    // 1. Zjistíme UID propojeného uživatele z aplikace (Smart Home User)
-    const userPath = '/v1.0/apps/users'; 
-    // Pokud tento endpoint vyžaduje app schema, zkusíme přímo získat zařízení propojené s projektem
-    // Používáme Smart Home PaaS endpoint bez vazby na IoT Core quota
-    const path = '/v1.0/smart/home/devices'; 
-    
-    let sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
+    // ID vašich zařízení z portálu Tuya pro přímý a rychlý výpis
+    const deviceIds = [
+      'bf524b00e3661af2bd7yjp', // Teploměr dílna
+      'bf66c0ae13f3dbf851tc1z', // Teploměr obývák
+      'bfa1b8eb8bda1a3781kddf'  // Teplota venku
+    ];
 
-    let res = await fetch(`${BASE_URL}${path}`, {
-      method: 'GET',
-      headers: {
-        client_id: CLIENT_ID,
-        access_token: token,
-        sign: sign,
-        t: timestamp,
-        sign_method: 'HMAC-SHA256',
-      },
-      cache: 'no-store',
-    });
+    // Načtení detailů a stavů pro každé zařízení přímo
+    const devicePromises = deviceIds.map(async (deviceId) => {
+      const path = `/v1.0/devices/${deviceId}`;
+      const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
-    let data = await res.json();
-
-    // Pokud Smart Home endpoint vrátí specifikaci nebo zzkusíme alternativní výpis
-    if (!data.success) {
-      // Záložní Smart Home PaaS v2 endpoint
-      const altPath = '/v2.0/cloud/thing/device';
-      const altSign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', altPath);
-      
-      const altRes = await fetch(`${BASE_URL}${altPath}`, {
+      const res = await fetch(`${BASE_URL}${path}`, {
         method: 'GET',
         headers: {
           client_id: CLIENT_ID,
           access_token: token,
-          sign: altSign,
+          sign: sign,
           t: timestamp,
           sign_method: 'HMAC-SHA256',
         },
         cache: 'no-store',
       });
-      const altData = await altRes.json();
 
-      if (altData.success) {
-        return NextResponse.json({
-          success: true,
-          devices: altData.result || [],
-        });
-      }
+      const data = await res.json();
+      return data.success ? data.result : null;
+    });
 
-      return NextResponse.json(
-        { error: `Tuya API Error (${data.code}): ${data.msg}` },
-        { status: 400 }
-      );
-    }
+    const results = await Promise.all(devicePromises);
+    const validDevices = results.filter((dev) => dev !== null);
 
     return NextResponse.json({
       success: true,
-      devices: data.result?.devices || data.result || [],
+      devices: validDevices,
     });
   } catch (error: any) {
     return NextResponse.json(
