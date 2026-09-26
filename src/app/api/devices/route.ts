@@ -1,23 +1,48 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-// Nastavení Next.js: Vynutit dynamické zpracování bez cache
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const CLIENT_ID = process.env.TUYA_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || "";
-const BASE_URL = "https://openapi.tuyaeu.com"; // nebo vaše regionální URL
+// Zkontrolujte, zda máte v Tuya nastavenou správnou oblast (EU je https://openapi.tuyaeu.com)
+const BASE_URL = process.env.TUYA_ENDPOINT || "https://openapi.tuyaeu.com";
 
+// Funkce pro výpočet podpisu (Sign) podle specifikace Tuya API v2
+function calcSign(
+  clientId: string,
+  secret: string,
+  timestamp: string,
+  accessToken: string,
+  method: string,
+  url: string,
+  body: string = ""
+) {
+  const contentHash = crypto.createHash("sha256").update(body).digest("hex");
+  const stringToSign = [method, contentHash, "", url].join("\n");
+  const signStr = clientId + accessToken + timestamp + stringToSign;
+
+  return crypto
+    .createHmac("sha256", secret)
+    .update(signStr)
+    .digest("hex")
+    .toUpperCase();
+}
+
+// Získání přístupového tokenu z Tuya
 async function getAccessToken() {
-  const method = "GET";
   const timestamp = Date.now().toString();
+  const method = "GET";
   const url = "/v1.0/token?grant_type=1";
 
-  const strToSign = [CLIENT_ID, timestamp, method, "", "", url].join("\n");
+  const contentHash = crypto.createHash("sha256").update("").digest("hex");
+  const stringToSign = [method, contentHash, "", url].join("\n");
+  const signStr = CLIENT_ID + timestamp + stringToSign;
+
   const sign = crypto
     .createHmac("sha256", CLIENT_SECRET)
-    .update(strToSign)
+    .update(signStr)
     .digest("hex")
     .toUpperCase();
 
@@ -40,20 +65,16 @@ async function getAccessToken() {
 
 export async function GET() {
   try {
+    if (!CLIENT_ID || !CLIENT_SECRET) {
+      throw new Error("Chybí TUYA_CLIENT_ID nebo TUYA_CLIENT_SECRET v proměnných prostředí.");
+    }
+
     const token = await getAccessToken();
-    const timestamp = Date.now().toString();
 
-    // 1. Získání seznamu všech zařízení
-    const devUrl = "/v1.0/users/YOUR_USER_ID_OR_APP/devices"; // Příklad volání seznamu
-    // Pokud používáte jiný endpoint pro seznam zařízení, ponechte své URL:
+    // Načtení seznamu všech zařízení z vašich spárovaných účtů
     const listUrl = "/v1.0/iot-01/associated-users/devices";
-
-    const listStrToSign = [CLIENT_ID, token, timestamp, "GET", "", "", listUrl].join("\n");
-    const listSign = crypto
-      .createHmac("sha256", CLIENT_SECRET)
-      .update(listStrToSign)
-      .digest("hex")
-      .toUpperCase();
+    const timestamp = Date.now().toString();
+    const listSign = calcSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, "GET", listUrl);
 
     const devRes = await fetch(`${BASE_URL}${listUrl}`, {
       headers: {
@@ -67,19 +88,19 @@ export async function GET() {
     });
 
     const devData = await devRes.json();
+
+    if (!devData.success) {
+      throw new Error(devData.msg || "Chyba při načítání seznamu zařízení");
+    }
+
     const rawDevices = devData.result?.devices || devData.result || [];
 
-    // 2. Načtení AKTUÁLNÍHO STATUSU (živých hodnot) pro každé zařízení
+    // Získání ŽIVÉHO STATUSU (teploty a vlhkosti) pro každé zařízení zvlášť
     const formattedDevices = await Promise.all(
       rawDevices.map(async (dev: any) => {
         const statusUrl = `/v1.0/devices/${dev.id}/status`;
         const stTimestamp = Date.now().toString();
-        const stStrToSign = [CLIENT_ID, token, stTimestamp, "GET", "", "", statusUrl].join("\n");
-        const stSign = crypto
-          .createHmac("sha256", CLIENT_SECRET)
-          .update(stStrToSign)
-          .digest("hex")
-          .toUpperCase();
+        const stSign = calcSign(CLIENT_ID, CLIENT_SECRET, stTimestamp, token, "GET", statusUrl);
 
         let statusList = dev.status || [];
         try {
@@ -101,7 +122,7 @@ export async function GET() {
           console.error(`Chyba načítání statusu pro ${dev.id}:`, e);
         }
 
-        // Vytažení teploty a vlhkosti ze živého statusu
+        // Hledání klíčů pro teplotu a vlhkost ze statusu
         const tempItem = statusList.find(
           (s: any) =>
             s.code === "va_temperature" ||
@@ -135,7 +156,7 @@ export async function GET() {
     );
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || "Neznámá chyba" },
       { status: 500 }
     );
   }
