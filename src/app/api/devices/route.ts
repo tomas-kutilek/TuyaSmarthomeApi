@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// Trvalé přístupové údaje z projektu Domacnost-PaaS a evropský PaaS endpoint
+// Přístupové údaje a oficiální evropský endpoint pre Tuya OpenAPI
 const CLIENT_ID = process.env.TUYA_CLIENT_ID || 'pasjsrhrnvpfk73mrqrn';
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || '1398c1d5b62842aeb3502abee069af89';
-const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeurope.com';
+const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com';
 
 // Pomocná funkce pro vygenerování HMAC-SHA256 podpisu
 function generateSign(
@@ -44,9 +44,14 @@ async function getAccessToken() {
     cache: 'no-store',
   });
 
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Tuya HTTP Error ${res.status}: ${errText}`);
+  }
+
   const data = await res.json();
   if (!data.success) {
-    throw new Error(`Tuya Token Error: ${data.msg || 'Failed to get token'}`);
+    throw new Error(`Tuya Token Error (${data.code}): ${data.msg || 'Failed to get token'}`);
   }
   return data.result.access_token;
 }
@@ -57,7 +62,7 @@ export async function GET() {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
     
-    // Univerzální endpoint pro načtení zařízení
+    // Načtení seznamu zařízení
     const path = '/v1.0/devices?page_no=1&page_size=100'; 
     const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -73,10 +78,15 @@ export async function GET() {
       cache: 'no-store',
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      return NextResponse.json({ error: `Tuya HTTP ${res.status}: ${errText}` }, { status: res.status });
+    }
+
     const data = await res.json();
 
     if (!data.success) {
-      return NextResponse.json({ error: data.msg }, { status: 400 });
+      return NextResponse.json({ error: `Tuya API Error (${data.code}): ${data.msg}` }, { status: 400 });
     }
 
     return NextResponse.json({
