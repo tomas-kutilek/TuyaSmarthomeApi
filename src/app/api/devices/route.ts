@@ -6,30 +6,32 @@ export async function GET() {
       {
         id: 'bf524b00e3661af2bd7yjp',
         name: 'Teploměr dílna',
+        online: true,
         status: [
-          { code: 'va_temperature', value: 215 }, // 21.5 °C
-          { code: 'va_humidity', value: 48 }     // 48 %
+          { code: 'temp_current', value: 215 },
+          { code: 'humidity', value: 48 }
         ]
       },
       {
         id: 'bf66c0ae13f3dbf851tc1z',
         name: 'Teploměr obývák',
+        online: true,
         status: [
-          { code: 'va_temperature', value: 232 }, // 23.2 °C
-          { code: 'va_humidity', value: 45 }     // 45 %
+          { code: 'temp_current', value: 232 },
+          { code: 'humidity', value: 45 }
         ]
       },
       {
         id: 'bfa1b8eb8bda1a3781kddf',
         name: 'Teplota venku',
+        online: true,
         status: [
-          { code: 'va_temperature', value: 148 }, // 14.8 °C
-          { code: 'va_humidity', value: 72 }     // 72 %
+          { code: 'temp_current', value: 148 },
+          { code: 'humidity', value: 72 }
         ]
       }
     ];
 
-    // Poskytneme data pro všechny možné struktury, které frontend může číst (.devices i .result)
     return NextResponse.json({
       success: true,
       devices: devicesList,
