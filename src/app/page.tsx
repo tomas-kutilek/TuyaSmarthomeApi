@@ -22,7 +22,6 @@ export default function Home() {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
-  // Aktualizace času a data
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -48,24 +47,24 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načtení čidel z API
   const fetchDevices = async () => {
     try {
-      const res = await fetch("/api/devices");
-      if (!res.ok) throw new Error("Chyba při načítání dat");
+      const res = await fetch("/api/devices", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Chyba serveru (${res.status})`);
       const data = await res.json();
 
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         setDevices(data);
         setError(null);
-      } else if (data.success && Array.isArray(data.result)) {
+      } else if (data.success && Array.isArray(data.result) && data.result.length > 0) {
         setDevices(data.result);
         setError(null);
       } else {
-        setError(data.error || "Nepodařilo se načíst zařízení");
+        const detailErr = data.error || data.msg || "Tuya API nevrátila žádná zařízení";
+        setError(detailErr);
       }
     } catch (err: any) {
-      setError(err?.message || "Chyba připojení k serveru");
+      setError(err?.message || "Chyba při komunikaci s backendem");
     } finally {
       setLoading(false);
     }
@@ -77,15 +76,22 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Hlasový asistent
-  const handleAssistantClick = () => {
+  const handleAssistantClick = async () => {
     if (typeof window === "undefined") return;
+
+    // Vyžádání přístupu k mikrofonu
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      alert("Aplikace nemá přístup k mikrofonu. Povolte jej v nastavení prohlížeče.");
+      return;
+    }
 
     const win = window as any;
     const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Prohlížeč nepodporuje rozpoznávání hlasu.");
+      alert("Tento prohlížeč nepodporuje rozpoznávání hlasu.");
       return;
     }
 
@@ -126,7 +132,7 @@ export default function Home() {
 
       recognition.onerror = (event: any) => {
         setListening(false);
-        setResponseMsg("Chyba rozpoznávání hlasu: " + (event.error || "Neznámá"));
+        setResponseMsg("Chyba mikrofonu: " + (event.error || "Neznámá chyba"));
       };
 
       recognition.onend = () => {
@@ -136,7 +142,7 @@ export default function Home() {
       recognition.start();
     } catch (e: any) {
       setListening(false);
-      alert("Nepodařilo se spustit mikrofon: " + (e?.message || e));
+      alert("Chyba spuštění: " + (e?.message || e));
     }
   };
 
@@ -158,7 +164,6 @@ export default function Home() {
         flexDirection: "column",
       }}
     >
-      {/* Horní lišta: Čas, datum a tlačítko */}
       <div
         style={{
           display: "flex",
@@ -201,7 +206,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Zobrazení reakce na příkaz */}
       {(transcript || responseMsg) && (
         <div
           style={{
@@ -225,10 +229,26 @@ export default function Home() {
         </div>
       )}
 
-      {loading && <p style={{ textAlign: "center", color: "#94a3b8" }}>Načítání čidel...</p>}
-      {error && <p style={{ color: "#f87171", textAlign: "center" }}>Chyba: {error}</p>}
+      {loading && devices.length === 0 && (
+        <p style={{ textAlign: "center", color: "#94a3b8" }}>Načítání dat z Tuya API...</p>
+      )}
 
-      {/* Mřížka pro 3 dlaždice */}
+      {error && (
+        <div
+          style={{
+            backgroundColor: "#7f1d1d",
+            color: "#fca5a5",
+            padding: "16px",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            textAlign: "center",
+            border: "1px solid #ef4444",
+          }}
+        >
+          ⚠️ <strong>Stav API:</strong> {error}
+        </div>
+      )}
+
       <div
         style={{
           display: "grid",
@@ -238,23 +258,20 @@ export default function Home() {
         }}
       >
         {filteredDevices.map((device) => {
-          // Výpočet reálné teploty
           const numericTemp =
             device.temperature !== undefined && device.temperature !== null
               ? device.temperature / 10
               : null;
 
-          // Vždy jedno desetinné místo (např. 10.0 °C místo 10 °C)
           const formattedTemp =
             numericTemp !== null ? numericTemp.toFixed(1) : null;
 
-          // Určení barvy textu podle hodnoty
-          let tempColor = "#ffffff"; // Výchozí bílá (0 až 30 °C)
+          let tempColor = "#ffffff";
           if (numericTemp !== null) {
             if (numericTemp > 30) {
-              tempColor = "#ef4444"; // Červená nad 30 °C
+              tempColor = "#ef4444";
             } else if (numericTemp < 0) {
-              tempColor = "#38bdf8"; // Modrá pod 0 °C
+              tempColor = "#38bdf8";
             }
           }
 
@@ -298,7 +315,6 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Teplota s dynamickou barvou */}
               <div style={{ margin: "auto 0" }}>
                 <div
                   style={{
@@ -312,7 +328,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Vlhkost dole */}
               {device.humidity !== undefined && device.humidity !== null && (
                 <div style={{ fontSize: "20px", color: "#94a3b8" }}>
                   Vlhkost: <strong style={{ color: "#38bdf8" }}>{device.humidity} %</strong>
