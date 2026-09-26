@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 const CLIENT_ID = process.env.TUYA_CLIENT_ID || 'pasjsrhrnvpfk73mrqrn';
 const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET || '1398c1d5b62842aeb3502abee069af89';
 const BASE_URL = process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com';
@@ -40,8 +42,7 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      // Zde se vracíme k hlavnímu detailu zařízení, který vrací aktuální pole statusů
-      const path = `/v1.0/devices/${devInfo.id}`;
+      const path = `/v1.0/devices/${devInfo.id}/status`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
       const res = await fetch(`${BASE_URL}${path}`, {
@@ -52,19 +53,13 @@ export async function GET() {
 
       const data = await res.json();
       
-      if (data.success && data.result) {
-        const dev = data.result;
+      if (data.success && Array.isArray(data.result)) {
         let rawTemp = 200;
-        
-        // Projdeme pole statusů, které zařízení hlásí do cloudu
-        if (Array.isArray(dev.status)) {
-          for (const st of dev.status) {
-            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
-              rawTemp = Number(st.value);
-            }
+        for (const st of data.result) {
+          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+            rawTemp = Number(st.value);
           }
         }
-        
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
         return {
@@ -83,7 +78,7 @@ export async function GET() {
     if (validDevices.length > 0) {
       return NextResponse.json(
         { success: true, devices: validDevices },
-        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } }
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'Pragma': 'no-cache' } }
       );
     }
 
