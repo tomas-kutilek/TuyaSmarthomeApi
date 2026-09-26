@@ -40,7 +40,6 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      // Endpoint pro přímé živé statusy čidla
       const path = `/v1.0/devices/${devInfo.id}/status`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -75,7 +74,10 @@ export async function GET() {
     const validDevices = results.filter((dev) => dev !== null);
 
     if (validDevices.length > 0) {
-      return NextResponse.json({ success: true, devices: validDevices });
+      return NextResponse.json(
+        { success: true, devices: validDevices },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'Pragma': 'no-cache' } }
+      );
     }
 
     throw new Error('Empty devices');
@@ -83,9 +85,12 @@ export async function GET() {
     const liveFallback = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 21.5 },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 22.5 },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 24.3 }
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 24.7 }
     ];
 
-    return NextResponse.json({ success: true, devices: liveFallback });
+    return NextResponse.json(
+      { success: true, devices: liveFallback },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   }
 }
