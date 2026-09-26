@@ -42,7 +42,6 @@ export async function GET() {
     ];
 
     const devicePromises = deviceIds.map(async (devInfo) => {
-      // Používáme ověřený hlavní detail zařízení
       const path = `/v1.0/devices/${devInfo.id}`;
       const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -56,23 +55,25 @@ export async function GET() {
       
       if (data.success && data.result) {
         const dev = data.result;
-        let rawTemp = 200;
+        let rawTemp = 0;
+        let foundTemp = false;
         
         if (Array.isArray(dev.status)) {
           for (const st of dev.status) {
-            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature'].includes(st.code)) {
+            if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature', 'ambient_temperature'].includes(st.code)) {
               rawTemp = Number(st.value);
+              foundTemp = true;
             }
           }
         }
-        
+
         let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
         return {
           id: devInfo.id,
           name: devInfo.name,
-          online: temperature !== 200,
-          temperature: temperature !== 200 ? temperature : 0
+          online: dev.online ?? true,
+          temperature: foundTemp ? temperature : 0
         };
       }
       
