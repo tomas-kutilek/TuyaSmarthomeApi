@@ -18,7 +18,6 @@ export default function Dashboard() {
 
   const fetchDevices = async () => {
     try {
-      // Přidání časového razítka ?t=... zamezí cachování v prohlížeči i ve Fully Kiosku
       const res = await fetch('/api/devices?t=' + Date.now(), {
         cache: 'no-store',
       });
@@ -33,15 +32,33 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDevices();
-    const interval = setInterval(fetchDevices, 30000); // Obnovení každých 30 sekund
+    const interval = setInterval(fetchDevices, 30000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <main style={{ padding: '20px', background: '#0f172a', minHeight: '100vh', color: '#fff', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    <main style={{ 
+      margin: 0, 
+      padding: '24px', 
+      background: '#0f172a', 
+      height: '100vh', 
+      width: '100vw', 
+      boxSizing: 'border-box', 
+      color: '#fff', 
+      fontFamily: 'sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(3, 1fr)', 
+        gap: '24px', 
+        flex: 1,
+        width: '100%',
+        height: '100%'
+      }}>
         {devices.map((device) => {
-          // Podmíněné barvy: modrá pro < 0°C, červená pro > 25°C
           let tempColor = '#fff';
           if (device.temperature < 0) tempColor = '#60a5fa'; 
           if (device.temperature > 25) tempColor = '#f87171'; 
@@ -51,36 +68,44 @@ export default function Dashboard() {
               key={device.id}
               style={{
                 background: '#1e293b',
-                borderRadius: '16px',
-                padding: '28px 32px',
+                borderRadius: '24px',
+                padding: '32px',
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'space-between',
-                alignItems: 'center',
                 border: '1px solid #334155',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+                height: '100%',
+                boxSizing: 'border-box'
               }}
             >
               <div>
-                <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', letterSpacing: '1px' }}>
+                <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', letterSpacing: '1px' }}>
                   {device.name.toUpperCase()}
                 </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
                   <span
                     style={{
-                      width: '10px',
-                      height: '10px',
+                      width: '12px',
+                      height: '12px',
                       borderRadius: '50%',
                       backgroundColor: device.online ? '#4ade80' : '#f87171',
                       display: 'inline-block',
                     }}
                   />
-                  <span style={{ fontSize: '14px', color: device.online ? '#4ade80' : '#f87171', fontWeight: '600' }}>
+                  <span style={{ fontSize: '16px', color: device.online ? '#4ade80' : '#f87171', fontWeight: '600' }}>
                     {device.online ? 'Online' : 'Offline'}
                   </span>
                 </div>
               </div>
-              <div style={{ fontSize: '52px', fontWeight: 'bold', color: tempColor }}>
-                {device.temperature.toFixed(1)} °C
+              <div style={{ 
+                fontSize: 'clamp(48px, 6vw, 76px)', 
+                fontWeight: 'bold', 
+                color: tempColor,
+                textAlign: 'right',
+                lineHeight: 1
+              }}>
+                {device.temperature.toFixed(1)} <span style={{ fontSize: '0.6em', fontWeight: 'normal' }}>°C</span>
               </div>
             </div>
           );
