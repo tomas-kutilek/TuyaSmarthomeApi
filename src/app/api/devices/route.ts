@@ -7,8 +7,10 @@ export async function GET() {
         id: 'bf524b00e3661af2bd7yjp',
         name: 'Teploměr dílna',
         online: true,
+        temperature: 21.5, // Standardní desetinné číslo
+        color: 'default',   // Mezi 0 a 25 °C
         status: [
-          { code: 'temp_current', value: 215 },
+          { code: 'temp_current', value: 21.5 },
           { code: 'humidity', value: 48 }
         ]
       },
@@ -16,8 +18,10 @@ export async function GET() {
         id: 'bf66c0ae13f3dbf851tc1z',
         name: 'Teploměr obývák',
         online: true,
+        temperature: 26.5, // Nad 25 °C -> červená
+        color: 'red',
         status: [
-          { code: 'temp_current', value: 232 },
+          { code: 'temp_current', value: 26.5 },
           { code: 'humidity', value: 45 }
         ]
       },
@@ -25,8 +29,10 @@ export async function GET() {
         id: 'bfa1b8eb8bda1a3781kddf',
         name: 'Teplota venku',
         online: true,
+        temperature: -2.5, // Pod 0 °C -> modrá
+        color: 'blue',
         status: [
-          { code: 'temp_current', value: 148 },
+          { code: 'temp_current', value: -2.5 },
           { code: 'humidity', value: 72 }
         ]
       }
