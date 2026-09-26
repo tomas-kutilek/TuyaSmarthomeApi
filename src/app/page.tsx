@@ -50,21 +50,29 @@ export default function Home() {
   const fetchDevices = async () => {
     try {
       const res = await fetch("/api/devices", { cache: "no-store" });
-      if (!res.ok) throw new Error(`Chyba serveru (${res.status})`);
       const data = await res.json();
 
-      if (Array.isArray(data) && data.length > 0) {
-        setDevices(data);
-        setError(null);
-      } else if (data.success && Array.isArray(data.result) && data.result.length > 0) {
-        setDevices(data.result);
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `Chyba serveru (${res.status})`);
+      }
+
+      let devList: Device[] = [];
+      if (Array.isArray(data)) {
+        devList = data;
+      } else if (data.success && Array.isArray(data.result)) {
+        devList = data.result;
+      } else if (Array.isArray(data.result)) {
+        devList = data.result;
+      }
+
+      if (devList.length > 0) {
+        setDevices(devList);
         setError(null);
       } else {
-        const detailErr = data.error || data.msg || "Tuya API nevrátila žádná zařízení";
-        setError(detailErr);
+        setError(data.error || data.msg || "Tuya API nevrátila žádná zařízení.");
       }
     } catch (err: any) {
-      setError(err?.message || "Chyba při komunikaci s backendem");
+      setError(err?.message || "Chyba připojení k backendu");
     } finally {
       setLoading(false);
     }
@@ -79,11 +87,10 @@ export default function Home() {
   const handleAssistantClick = async () => {
     if (typeof window === "undefined") return;
 
-    // Vyžádání přístupu k mikrofonu
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
-      alert("Aplikace nemá přístup k mikrofonu. Povolte jej v nastavení prohlížeče.");
+      alert("Povolte prosím přístup k mikrofonu v nastavení prohlížeče.");
       return;
     }
 
@@ -142,14 +149,17 @@ export default function Home() {
       recognition.start();
     } catch (e: any) {
       setListening(false);
-      alert("Chyba spuštění: " + (e?.message || e));
+      alert("Chyba spuštění mikrofonu: " + (e?.message || e));
     }
   };
 
   const targetNames = ["teploměr dílna", "teploměr obývák", "teplota venku"];
-  const filteredDevices = devices.filter((dev) =>
+  const matchedDevices = devices.filter((dev) =>
     targetNames.some((name) => dev.name.toLowerCase().includes(name))
   );
+
+  // Pokud filtr podle názvu nic nenajde, zobrazíme všechna načtená zařízení
+  const displayDevices = matchedDevices.length > 0 ? matchedDevices : devices;
 
   return (
     <main
@@ -230,7 +240,9 @@ export default function Home() {
       )}
 
       {loading && devices.length === 0 && (
-        <p style={{ textAlign: "center", color: "#94a3b8" }}>Načítání dat z Tuya API...</p>
+        <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "18px" }}>
+          Načítání dat z Tuya API...
+        </p>
       )}
 
       {error && (
@@ -245,19 +257,19 @@ export default function Home() {
             border: "1px solid #ef4444",
           }}
         >
-          ⚠️ <strong>Stav API:</strong> {error}
+          ⚠️ <strong>Detail chyby:</strong> {error}
         </div>
       )}
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: displayDevices.length > 0 ? "repeat(auto-fit, minmax(280px, 1fr))" : "1fr",
           gap: "20px",
           flex: 1,
         }}
       >
-        {filteredDevices.map((device) => {
+        {displayDevices.map((device) => {
           const numericTemp =
             device.temperature !== undefined && device.temperature !== null
               ? device.temperature / 10
@@ -315,7 +327,7 @@ export default function Home() {
                 </span>
               </div>
 
-              <div style={{ margin: "auto 0" }}>
+              <div style={{ margin: "30px 0" }}>
                 <div
                   style={{
                     fontSize: "64px",
