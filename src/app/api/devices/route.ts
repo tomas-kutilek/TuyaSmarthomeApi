@@ -62,47 +62,50 @@ export async function GET() {
 
         const data = await res.json();
 
-        if (data.success && data.result) {
-          const dev = data.result;
-          let rawTemp = 0;
-          let foundTemp = false;
-
-          const statusList = dev.status || [];
-          if (Array.isArray(statusList)) {
-            for (const st of statusList) {
-              if (st && st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
-                const val = Number(st.value);
-                if (!isNaN(val)) {
-                  rawTemp = val;
-                  foundTemp = true;
-                }
-              }
-            }
-          }
-
-          let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
-
-          // Pokud se teplota nenašla, zkusíme vrátit alespoň 99.9, abychom věděli, že zařízení prošlo
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: dev.online ?? true,
-            temperature: foundTemp ? temperature : 22.2 // Pevná ukázková teplota, pokud v statusu chybí klíč
-          };
-        } else {
+        // Pokud Tuya vrátí chybu, pošleme ji jako text do teploty, ať ji vidíme na displeji
+        if (!data.success) {
           return {
             id: devInfo.id,
             name: devInfo.name,
             online: false,
-            temperature: -1 // Indikace chyby odpovědi API
+            temperature: 0,
+            errorMsg: data.msg || 'API Error'
           };
         }
+
+        const dev = data.result || {};
+        let rawTemp = 0;
+        let foundTemp = false;
+
+        const statusList = dev.status || [];
+        if (Array.isArray(statusList)) {
+          for (const st of statusList) {
+            if (st && st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
+              const val = Number(st.value);
+              if (!isNaN(val)) {
+                rawTemp = val;
+                foundTemp = true;
+              }
+            }
+          }
+        }
+
+        let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
+
+        return {
+          id: devInfo.id,
+          name: devInfo.name,
+          online: dev.online ?? true,
+          temperature: foundTemp ? temperature : 55.5 // Indikace: zařízení odpovědělo, ale nenašlo se 'temp' v statusu
+        };
+
       } catch (err: any) {
         return {
           id: devInfo.id,
           name: devInfo.name,
-            online: false,
-          temperature: -2
+          online: false,
+          temperature: 0,
+          errorMsg: err.message
         };
       }
     }));
