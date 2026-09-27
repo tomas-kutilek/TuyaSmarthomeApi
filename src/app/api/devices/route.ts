@@ -45,7 +45,6 @@ export async function GET() {
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
-        // Správný endpoint pro aktuální stav stavových veličin (teplot apod.)
         const path = `/v1.0/devices/${devInfo.id}/status`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -69,10 +68,10 @@ export async function GET() {
         if (data.success && Array.isArray(data.result)) {
           online = true;
           for (const item of data.result) {
-            // Tuya vrací teploty pod kódy jako 'va_temperature', 'temp_current', 'temperature' atd.
             if (item.code && (item.code.includes('temp') || item.code.includes('temperature') || item.code === 'va_temperature')) {
               let val = Number(item.value);
-              temp = val > 60 || val -60 ? val / 10 : val;
+              // Opravená korektní podmínka pro škálování teploty
+              temp = (val > 60 || val < -60) ? val / 10 : val;
             }
           }
         }
