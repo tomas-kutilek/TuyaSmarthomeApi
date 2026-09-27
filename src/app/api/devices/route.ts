@@ -38,14 +38,15 @@ export async function GET() {
     const timestamp = Date.now().toString();
 
     const targetDevices = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', fallbackTemp: 19.5 },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', fallbackTemp: 22.0 },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', fallbackTemp: 14.5 }
+      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
+      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
     ];
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
-        const path = `/v1.0/iot-03/devices/${devInfo.id}/status`;
+        // Standardní endpoint pro detail a stav zařízení v projektu
+        const path = `/v1.0/devices/${devInfo.id}`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
         const res = await fetch(`${BASE_URL}${path}`, {
@@ -62,28 +63,32 @@ export async function GET() {
 
         const data = await res.json();
 
-        if (data.success && Array.isArray(data.result)) {
+        if (data.success && data.result) {
+          const dev = data.result;
           let temp = 0;
-          for (const item of data.result) {
-            if (item.code && (item.code.includes('temp') || item.code.includes('temperature'))) {
-              let val = Number(item.value);
+          let found = false;
+
+          const statusList = dev.status || [];
+          for (const st of statusList) {
+            if (st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
+              let val = Number(st.value);
               temp = val > 50 || val < -50 ? val / 10 : val;
+              found = true;
             }
           }
+
           return {
             id: devInfo.id,
             name: devInfo.name,
-            online: true,
-            temperature: temp !== 0 ? temp : devInfo.fallbackTemp
+            online: dev.online ?? true,
+            temperature: found ? temp : 20.0
           };
         } else {
-          // Pokud API vrátí chybu oprávnění, ukážeme stav s fallback hodnotou,
-          // abyste viděl, že dashboard funguje, dokud ověříte projekt v Tuya portálu
           return {
             id: devInfo.id,
-            name: `${devInfo.name} (API Restricted)`,
+            name: devInfo.name,
             online: false,
-            temperature: devInfo.fallbackTemp
+            temperature: 0.0
           };
         }
       } catch (err) {
@@ -91,7 +96,7 @@ export async function GET() {
           id: devInfo.id,
           name: devInfo.name,
           online: false,
-          temperature: devInfo.fallbackTemp
+          temperature: 0.0
         };
       }
     }));
