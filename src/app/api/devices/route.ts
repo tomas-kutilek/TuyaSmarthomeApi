@@ -27,7 +27,7 @@ async function getAccessToken() {
 
   const data = await res.json();
   if (!data.success) {
-    throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
+    throw new Error(`Token error: ${data.msg || JSON.stringify(data)} (code: ${data.code})`);
   }
   return data.result.access_token;
 }
@@ -44,57 +44,48 @@ export async function GET() {
     ];
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
-      try {
-        const path = `/v1.0/devices/${devInfo.id}`;
-        const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
+      const path = `/v1.0/devices/${devInfo.id}`;
+      const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
-        const res = await fetch(`${BASE_URL}${path}`, {
-          method: 'GET',
-          headers: {
-            client_id: CLIENT_ID,
-            access_token: token,
-            sign: sign,
-            t: timestamp,
-            sign_method: 'HMAC-SHA256'
-          },
-          cache: 'no-store',
-        });
+      const res = await fetch(`${BASE_URL}${path}`, {
+        method: 'GET',
+        headers: {
+          client_id: CLIENT_ID,
+          access_token: token,
+          sign: sign,
+          t: timestamp,
+          sign_method: 'HMAC-SHA256'
+        },
+        cache: 'no-store',
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (data.success && data.result) {
-          const dev = data.result;
-          let rawTemp = 0;
-          let foundTemp = false;
-
-          const statusList = dev.status || [];
-          if (Array.isArray(statusList)) {
-            for (const st of statusList) {
-              if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature', 'ambient_temperature'].includes(st.code)) {
-                rawTemp = Number(st.value);
-                foundTemp = true;
-              }
-            }
-          }
-
-          let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
-
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: dev.online ?? true,
-            temperature: foundTemp ? temperature : 0
-          };
-        }
-      } catch (err) {
-        console.error(`Error fetching ${devInfo.name}:`, err);
+      if (!data.success) {
+        throw new Error(`Device ${devInfo.name} error: ${data.msg || JSON.stringify(data)} (code: ${data.code})`);
       }
+
+      const dev = data.result;
+      let rawTemp = 0;
+      let foundTemp = false;
+
+      const statusList = dev.status || [];
+      if (Array.isArray(statusList)) {
+        for (const st of statusList) {
+          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature', 'ambient_temperature'].includes(st.code)) {
+            rawTemp = Number(st.value);
+            foundTemp = true;
+          }
+        }
+      }
+
+      let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
       return {
         id: devInfo.id,
         name: devInfo.name,
-        online: false,
-        temperature: 0
+        online: dev.online ?? true,
+        temperature: foundTemp ? temperature : 0
       };
     }));
 
