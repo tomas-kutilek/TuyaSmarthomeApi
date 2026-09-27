@@ -14,7 +14,7 @@ function generateSign(clientId: string, secret: string, timestamp: string, acces
   return crypto.createHmac('sha256', secret).update(signStr).digest('hex').toUpperCase();
 }
 
-async function getAccessToken() {
+async function getTokenAndUid() {
   const timestamp = Date.now().toString();
   const path = '/v1.0/token?grant_type=1';
   const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
@@ -29,100 +29,81 @@ async function getAccessToken() {
   if (!data.success) {
     throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
   }
-  return data.result.access_token;
-}
-
-async function fetchTuyaApi(path: string, token: string, clientId: string, secret: string, baseUrl: string) {
-  const timestamp = Date.now().toString();
-  const sign = generateSign(clientId, secret, timestamp, token, '', 'GET', path);
-
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: 'GET',
-    headers: {
-      client_id: clientId,
-      access_token: token,
-      sign: sign,
-      t: timestamp,
-      sign_method: 'HMAC-SHA256'
-    },
-    cache: 'no-store',
-  });
-
-  return await res.json();
+  return {
+    accessToken: data.result.access_token,
+    uid: data.result.uid
+  };
 }
 
 export async function GET() {
   try {
-    const token = await getAccessToken();
+    const { accessToken, uid } = await getTokenAndUid();
+    const timestamp = Date.now().toString();
 
-    const targetDevices = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
-    ];
+    // Hromadný endpoint pro všechna zařízení uživatele (funguje spolehlivě i pro Zigbee brány)
+    const path = `/v1.0/users/${uid}/devices`;
+    const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, accessToken, '', 'GET', path);
 
-    const results = await Promise.all(targetDevices.map(async (devInfo) => {
-      let online = false;
-      let temperature = 0.0;
-      let statusList: any[] = [];
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'GET',
+      headers: {
+        client_id: CLIENT_ID,
+        access_token: accessToken,
+        sign: sign,
+        t: timestamp,
+        sign_method: 'HMAC-SHA256'
+      },
+      cache: 'no-store',
+    });
 
-      // Seznam endpointů, které pro Zigbee zařízení v Tuya cloudu přicházejí v úvahu
-      const pathsToTry = [
-        `/v1.0/devices/${devInfo.id}`,
-        `/v1.0/devices/${devInfo.id}/status`,
-        `/v1.0/iot-03/devices/${devInfo.id}/status`
-      ];
+    const data = await res.json();
 
-      for (const path of pathsToTry) {
-        try {
-          const data = await fetchTuyaApi(path, token, CLIENT_ID, CLIENT_SECRET, BASE_URL);
+    const targetDevicesMap: Record<string, string> = {
+      'bf524b00e3661af2bd7yjp': 'Dílna',
+      'bf66c0ae13f3dbf851tc1z': 'Obývák',
+      'bfa1b8eb8bda1a3781kddf': 'Venku'
+    };
+
+    const results: any[] = [];
+
+    if (data.success && Array.isArray(data.result)) {
+      for (const dev of data.result) {
+        if (targetDevicesMap[dev.id]) {
+          let online = dev.online ?? false;
+          let temp = 0.0;
           
-          if (data.success) {
-            // Zjištění online stavu
-            if (typeof data.result?.online === 'boolean') {
-              online = data.result.online;
-            } else {
-              online = true; // Pokud endpoint vrátil úspěšná data, zařízení komunikuje
-            }
-
-            // Extrakce status pole (může být v result, nebo přímo jako pole v result)
-            if (Array.isArray(data.result)) {
-              statusList = data.result;
-            } else if (Array.isArray(data.result?.status)) {
-              statusList = data.result.status;
-            } else if (Array.isArray(data.result?.properties)) {
-              statusList = data.result.properties;
-            }
-
-            if (statusList.length > 0) {
-              for (const item of statusList) {
-                const code = item.code || item.dp_id;
-                if (code && (String(code).toLowerCase().includes('temp') || String(code) === 'va_temperature')) {
-                  let val = Number(item.value);
-                  if (!isNaN(val)) {
-                    temperature = (val > 60 || val < -60) ? val / 10 : val;
-                    break;
-                  }
-                }
-              }
-              // Pokud jsme našli teplotu, máme vyhráno
-              if (temperature !== 0.0 || statusList.length > 0) {
-                break;
+          const statusList = dev.status || dev.properties || [];
+          for (const item of statusList) {
+            const code = item.code || '';
+            if (code.includes('temp') || code.includes('temperature') || code === 'va_temperature') {
+              let val = Number(item.value);
+              if (!isNaN(val)) {
+                temp = (val > 60 || val < -60) ? val / 10 : val;
               }
             }
           }
-        } catch (e) {
-          // Pokračujeme dalším endpointem v pořadí
+
+          results.push({
+            id: dev.id,
+            name: targetDevicesMap[dev.id],
+            online: online,
+            temperature: temp
+          });
         }
       }
+    }
 
-      return {
-        id: devInfo.id,
-        name: devInfo.name,
-        online: online,
-        temperature: temperature
-      };
-    }));
+    // Pojistka pro případ, že by některé zařízení v poli chybělo
+    for (const [id, name] of Object.entries(targetDevicesMap)) {
+      if (!results.some(d => d.id === id)) {
+        results.push({
+          id,
+          name,
+          online: false,
+          temperature: 0.0
+        });
+      }
+    }
 
     return NextResponse.json({ success: true, devices: results });
 
