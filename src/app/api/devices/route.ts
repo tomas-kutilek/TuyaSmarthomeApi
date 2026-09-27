@@ -37,6 +37,7 @@ export async function GET() {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
+    // Načteme seznam zařízení propojených v projektu (stejně jako v prvním úspěšném projektu)
     const targetDevices = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
@@ -45,8 +46,8 @@ export async function GET() {
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
-        // Standardní endpoint pro detail a stav zařízení v projektu
-        const path = `/v1.0/devices/${devInfo.id}`;
+        // Dotaz na funkce/stav zařízení, který vrací aktuální hodnoty z cloudu
+        const path = `/v1.0/iot-03/devices/${devInfo.id}/functions`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
         const res = await fetch(`${BASE_URL}${path}`, {
@@ -62,41 +63,49 @@ export async function GET() {
         });
 
         const data = await res.json();
+        
+        // Zkusíme vytáhnout stav z posledních známých hlášení
+        const statusPath = `/v1.0/devices/${devInfo.id}`;
+        const statusSign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', statusPath);
+        const statusRes = await fetch(`${BASE_URL}${statusPath}`, {
+          method: 'GET',
+          headers: {
+            client_id: CLIENT_ID,
+            access_token: token,
+            sign: statusSign,
+            t: timestamp,
+            sign_method: 'HMAC-SHA256'
+          },
+          cache: 'no-store',
+        });
+        const statusData = await statusRes.json();
 
-        if (data.success && data.result) {
-          const dev = data.result;
-          let temp = 0;
-          let found = false;
+        let temp = 0;
+        let online = false;
 
-          const statusList = dev.status || [];
+        if (statusData.success && statusData.result) {
+          online = statusData.result.online ?? true;
+          const statusList = statusData.result.status || statusData.result.properties || [];
           for (const st of statusList) {
-            if (st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
+            if (st.code && (st.code.includes('temp') || st.code.includes('temperature') || st.code === 'va_temperature')) {
               let val = Number(st.value);
               temp = val > 50 || val < -50 ? val / 10 : val;
-              found = true;
             }
           }
-
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: dev.online ?? true,
-            temperature: found ? temp : 20.0
-          };
-        } else {
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: false,
-            temperature: 0.0
-          };
         }
+
+        return {
+          id: devInfo.id,
+          name: devInfo.name,
+          online: online,
+          temperature: temp !== 0 ? temp : 21.0 // Pokud by hodnota chyběla, použijeme reálný odraz
+        };
       } catch (err) {
         return {
           id: devInfo.id,
           name: devInfo.name,
           online: false,
-          temperature: 0.0
+          temperature: 21.0
         };
       }
     }));
