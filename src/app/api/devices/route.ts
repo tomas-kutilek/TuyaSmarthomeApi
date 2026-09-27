@@ -37,6 +37,7 @@ export async function GET() {
     const token = await getAccessToken();
     const timestamp = Date.now().toString();
 
+    // Definice našich zařízení s jejich přesnými ID z Tuya portálu
     const targetDevices = [
       { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
       { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
@@ -45,7 +46,8 @@ export async function GET() {
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
-        const path = `/v1.0/devices/${devInfo.id}/status`;
+        // Použijeme detailní endpoint zařízení, který vrací aktuální property/status
+        const path = `/v1.0/devices/${devInfo.id}`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
         const res = await fetch(`${BASE_URL}${path}`, {
@@ -65,14 +67,16 @@ export async function GET() {
         let temp = 0.0;
         let online = false;
 
-        if (data.success && Array.isArray(data.result)) {
-          online = true;
-          for (const item of data.result) {
-            // Hledáme klíče odpovídající teplotě v Tuya protokolu
+        if (data.success && data.result) {
+          online = data.result.online ?? false;
+          const statusList = data.result.status || [];
+          
+          for (const item of statusList) {
+            // Hledáme jakýkoliv kód obsahující teplotu
             if (item.code && (item.code.includes('temp') || item.code.includes('temperature') || item.code === 'va_temperature')) {
               let val = Number(item.value);
-              // Některá čidla posílají teplotu vynásobenou 10 (např. 215 -> 21.5)
-              temp = val > 50 || val < -50 ? val / 10 : val;
+              // Ošetření škálování hodnot z Tuya (pokud posílají např. 215 místo 21.5)
+              temp = val > 60 || val < -60 ? val / 10 : val;
             }
           }
         }
