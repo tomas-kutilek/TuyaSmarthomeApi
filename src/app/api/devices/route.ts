@@ -14,7 +14,7 @@ function generateSign(clientId: string, secret: string, timestamp: string, acces
   return crypto.createHmac('sha256', secret).update(signStr).digest('hex').toUpperCase();
 }
 
-async function getTokenAndUid() {
+async function getAccessToken() {
   const timestamp = Date.now().toString();
   const path = '/v1.0/token?grant_type=1';
   const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
@@ -29,81 +29,80 @@ async function getTokenAndUid() {
   if (!data.success) {
     throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
   }
-  return {
-    accessToken: data.result.access_token,
-    uid: data.result.uid
-  };
+  return data.result.access_token;
 }
 
 export async function GET() {
   try {
-    const { accessToken, uid } = await getTokenAndUid();
-    const timestamp = Date.now().toString();
+    const accessToken = await getAccessToken();
 
-    // Hromadný endpoint pro všechna zařízení uživatele (funguje spolehlivě i pro Zigbee brány)
-    const path = `/v1.0/users/${uid}/devices`;
-    const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, accessToken, '', 'GET', path);
+    const targetDevices = [
+      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
+      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
+      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
+    ];
 
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: 'GET',
-      headers: {
-        client_id: CLIENT_ID,
-        access_token: accessToken,
-        sign: sign,
-        t: timestamp,
-        sign_method: 'HMAC-SHA256'
-      },
-      cache: 'no-store',
-    });
+    const results = await Promise.all(targetDevices.map(async (dev) => {
+      let online = false;
+      let temperature = 0.0;
 
-    const data = await res.json();
+      // Zkusíme stáhnout detail a stav zařízení
+      const pathsToTry = [
+        `/v1.0/devices/${dev.id}`,
+        `/v1.0/devices/${dev.id}/status`
+      ];
 
-    const targetDevicesMap: Record<string, string> = {
-      'bf524b00e3661af2bd7yjp': 'Dílna',
-      'bf66c0ae13f3dbf851tc1z': 'Obývák',
-      'bfa1b8eb8bda1a3781kddf': 'Venku'
-    };
+      for (const path of pathsToTry) {
+        try {
+          const timestamp = Date.now().toString();
+          const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, accessToken, '', 'GET', path);
 
-    const results: any[] = [];
+          const res = await fetch(`${BASE_URL}${path}`, {
+            method: 'GET',
+            headers: {
+              client_id: CLIENT_ID,
+              access_token: accessToken,
+              sign: sign,
+              t: timestamp,
+              sign_method: 'HMAC-SHA256'
+            },
+            cache: 'no-store',
+          });
 
-    if (data.success && Array.isArray(data.result)) {
-      for (const dev of data.result) {
-        if (targetDevicesMap[dev.id]) {
-          let online = dev.online ?? false;
-          let temp = 0.0;
-          
-          const statusList = dev.status || dev.properties || [];
-          for (const item of statusList) {
-            const code = item.code || '';
-            if (code.includes('temp') || code.includes('temperature') || code === 'va_temperature') {
-              let val = Number(item.value);
-              if (!isNaN(val)) {
-                temp = (val > 60 || val < -60) ? val / 10 : val;
+          const data = await res.json();
+          if (data.success && data.result) {
+            // Pokud jde o detail zařízení
+            if (typeof data.result.online === 'boolean') {
+              online = data.result.online;
+            } else {
+              online = true; // Pokud endpoint odpověděl úspěšně, zařízení žije
+            }
+
+            // Extrakce stavů / vlastností (status může být pole nebo objekt)
+            const statusList = Array.isArray(data.result) ? data.result : (data.result.status || data.result.properties || []);
+            
+            for (const item of statusList) {
+              const code = item.code || item.dp_id || '';
+              if (String(code).toLowerCase().includes('temp') || code === 'va_temperature') {
+                let val = Number(item.value);
+                if (!isNaN(val)) {
+                  temperature = (val > 60 || val < -60) ? val / 10 : val;
+                }
               }
             }
           }
-
-          results.push({
-            id: dev.id,
-            name: targetDevicesMap[dev.id],
-            online: online,
-            temperature: temp
-          });
+        } catch (err) {
+          // Pokračujeme na další cestu v poli, pokud tato selhala
         }
       }
-    }
 
-    // Pojistka pro případ, že by některé zařízení v poli chybělo
-    for (const [id, name] of Object.entries(targetDevicesMap)) {
-      if (!results.some(d => d.id === id)) {
-        results.push({
-          id,
-          name,
-          online: false,
-          temperature: 0.0
-        });
-      }
-    }
+      return {
+        id: dev.id,
+        name: dev.name,
+        online: online,
+        temperature: temperature
+      };
+    }));
 
     return NextResponse.json({ success: true, devices: results });
 
