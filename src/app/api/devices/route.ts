@@ -27,7 +27,7 @@ async function getAccessToken() {
 
   const data = await res.json();
   if (!data.success) {
-    throw new Error(`Token error: ${data.msg || JSON.stringify(data)} (code: ${data.code})`);
+    throw new Error(`Token error: ${data.msg}`);
   }
   return data.result.access_token;
 }
@@ -62,17 +62,27 @@ export async function GET() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(`Device ${devInfo.name} error: ${data.msg || JSON.stringify(data)} (code: ${data.code})`);
+        return {
+          id: devInfo.id,
+          name: devInfo.name,
+          online: false,
+          temperature: 0,
+          debug: data.msg
+        };
       }
 
       const dev = data.result;
       let rawTemp = 0;
       let foundTemp = false;
 
-      const statusList = dev.status || [];
+      // Projdeme status pole a vypíšeme klíče do konzole Vercelu
+      const statusList = dev.status || dev.properties || [];
+      console.log(`Device ${devInfo.name} status:`, JSON.stringify(statusList));
+
       if (Array.isArray(statusList)) {
         for (const st of statusList) {
-          if (['temp_current', 'temperature', 'cur_temperature', 'va_temperature', 'ambient_temperature'].includes(st.code)) {
+          // Zohledníme jakékoliv možné názvy kódů pro teplotu
+          if (st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
             rawTemp = Number(st.value);
             foundTemp = true;
           }
@@ -85,7 +95,7 @@ export async function GET() {
         id: devInfo.id,
         name: devInfo.name,
         online: dev.online ?? true,
-        temperature: foundTemp ? temperature : 0
+        temperature: foundTemp ? temperature : 999 // Pokud nenajde, vrátí 999 abychom to poznali na displeji
       };
     }));
 
