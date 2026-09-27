@@ -45,7 +45,6 @@ export async function GET() {
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
       try {
-        // Oficiální endpoint pro stav zařízení včetně Zigbee senzorů
         const path = `/v1.0/devices/${devInfo.id}/status`;
         const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
@@ -63,14 +62,16 @@ export async function GET() {
 
         const data = await res.json();
 
-        let temp = 0;
+        let temp = 0.0;
         let online = false;
 
         if (data.success && Array.isArray(data.result)) {
-          online = true; // Pokud API vrátilo status, zařízení komunikuje
+          online = true;
           for (const item of data.result) {
+            // Hledáme klíče odpovídající teplotě v Tuya protokolu
             if (item.code && (item.code.includes('temp') || item.code.includes('temperature') || item.code === 'va_temperature')) {
               let val = Number(item.value);
+              // Některá čidla posílají teplotu vynásobenou 10 (např. 215 -> 21.5)
               temp = val > 50 || val < -50 ? val / 10 : val;
             }
           }
@@ -80,19 +81,19 @@ export async function GET() {
           id: devInfo.id,
           name: devInfo.name,
           online: online,
-          temperature: temp !== 0 ? temp : 21.0
+          temperature: temp
         };
       } catch (err) {
         return {
           id: devInfo.id,
           name: devInfo.name,
           online: false,
-          temperature: 21.0
+          temperature: 0.0
         };
       }
     }));
 
-    return NextResponse.json({ success: status ? true : true, devices: results });
+    return NextResponse.json({ success: true, devices: results });
 
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
