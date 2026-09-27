@@ -27,7 +27,7 @@ async function getAccessToken() {
 
   const data = await res.json();
   if (!data.success) {
-    throw new Error(`Token error: ${data.msg}`);
+    throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
   }
   return data.result.access_token;
 }
@@ -44,58 +44,63 @@ export async function GET() {
     ];
 
     const results = await Promise.all(targetDevices.map(async (devInfo) => {
-      const path = `/v1.0/devices/${devInfo.id}`;
-      const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
+      try {
+        const path = `/v1.0/devices/${devInfo.id}`;
+        const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
-      const res = await fetch(`${BASE_URL}${path}`, {
-        method: 'GET',
-        headers: {
-          client_id: CLIENT_ID,
-          access_token: token,
-          sign: sign,
-          t: timestamp,
-          sign_method: 'HMAC-SHA256'
-        },
-        cache: 'no-store',
-      });
+        const res = await fetch(`${BASE_URL}${path}`, {
+          method: 'GET',
+          headers: {
+            client_id: CLIENT_ID,
+            access_token: token,
+            sign: sign,
+            t: timestamp,
+            sign_method: 'HMAC-SHA256'
+          },
+          cache: 'no-store',
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!data.success) {
-        return {
-          id: devInfo.id,
-          name: devInfo.name,
-          online: false,
-          temperature: 0,
-          debug: data.msg
-        };
-      }
+        if (data.success && data.result) {
+          const dev = data.result;
+          let rawTemp = 0;
+          let foundTemp = false;
 
-      const dev = data.result;
-      let rawTemp = 0;
-      let foundTemp = false;
-
-      // Projdeme status pole a vypíšeme klíče do konzole Vercelu
-      const statusList = dev.status || dev.properties || [];
-      console.log(`Device ${devInfo.name} status:`, JSON.stringify(statusList));
-
-      if (Array.isArray(statusList)) {
-        for (const st of statusList) {
-          // Zohledníme jakékoliv možné názvy kódů pro teplotu
-          if (st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
-            rawTemp = Number(st.value);
-            foundTemp = true;
+          // Bezpečné načtení stavů zařízení bez duplicitních deklarací
+          const statusList = dev.status || dev.properties || [];
+          
+          if (Array.isArray(statusList)) {
+            for (const st of statusList) {
+              if (st && st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
+                const parsedVal = Number(st.value);
+                if (!isNaN(parsedVal)) {
+                  rawTemp = parsedVal;
+                  foundTemp = true;
+                }
+              }
+            }
           }
-        }
-      }
 
-      let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
+          // Některá Tuya zařízení hlásí teplotu vynásobenou 10 (např. 215 místo 21.5)
+          let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
+
+          return {
+            id: devInfo.id,
+            name: devInfo.name,
+            online: dev.online ?? true,
+            temperature: foundTemp ? temperature : 0
+          };
+        }
+      } catch (err) {
+        console.error(`Error fetching device ${devInfo.name}:`, err);
+      }
 
       return {
         id: devInfo.id,
         name: devInfo.name,
-        online: dev.online ?? true,
-        temperature: foundTemp ? temperature : 999 // Pokud nenajde, vrátí 999 abychom to poznali na displeji
+        online: false,
+        temperature: 0
       };
     }));
 
