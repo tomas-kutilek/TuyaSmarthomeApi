@@ -14,111 +14,32 @@ function generateSign(clientId: string, secret: string, timestamp: string, acces
   return crypto.createHmac('sha256', secret).update(signStr).digest('hex').toUpperCase();
 }
 
-async function getAccessToken() {
-  const timestamp = Date.now().toString();
-  const path = '/v1.0/token?grant_type=1';
-  const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
-
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'GET',
-    headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
-    cache: 'no-store',
-  });
-
-  const data = await res.json();
-  if (!data.success) {
-    throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
-  }
-  return data.result.access_token;
-}
-
 export async function GET() {
   try {
-    const token = await getAccessToken();
     const timestamp = Date.now().toString();
+    const path = '/v1.0/token?grant_type=1';
+    const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
 
-    // Zkusíme vyhledat zařízení přímo přes oficiální endpoint pro zjištění zařízení v projektu / domácnosti
-    // Budeme se dotazovat našich 3 specifických ID, ale bezpečněji
-    const targetDevices = [
-      { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna' },
-      { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák' },
-      { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku' }
-    ];
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'GET',
+      headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
+      cache: 'no-store',
+    });
 
-    const results = await Promise.all(targetDevices.map(async (devInfo) => {
-      try {
-        const path = `/v1.0/devices/${devInfo.id}`;
-        const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
+    const data = await res.json();
 
-        const res = await fetch(`${BASE_URL}${path}`, {
-          method: 'GET',
-          headers: {
-            client_id: CLIENT_ID,
-            access_token: token,
-            sign: sign,
-            t: timestamp,
-            sign_method: 'HMAC-SHA256'
-          },
-          cache: 'no-store',
-        });
-
-        const data = await res.json();
-
-        if (data.success && data.result) {
-          const dev = data.result;
-          let rawTemp = 0;
-          let foundTemp = false;
-
-          const statusList = dev.status || [];
-          if (Array.isArray(statusList)) {
-            for (const st of statusList) {
-              if (st && st.code && (st.code.includes('temp') || st.code.includes('temperature'))) {
-                const val = Number(st.value);
-                if (!isNaN(val)) {
-                  rawTemp = val;
-                  foundTemp = true;
-                }
-              }
-            }
-          }
-
-          let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
-
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: dev.online ?? true,
-            temperature: foundTemp ? temperature : 21.0 // Pokud zařízení odpoví, ale nemá klíč teploty, ukážeme bezpečné číslo
-          };
-        } else {
-          // Pokud Tuya vrátí chybu (např. device not found / permission), vrátíme demo data,
-          // ať vidíme, že dashboard graficky funguje, dokud ověříte vazbu v Tuya Cloudu
-          return {
-            id: devInfo.id,
-            name: devInfo.name,
-            online: false,
-            temperature: 0.0
-          };
-        }
-      } catch (err) {
-        return {
-          id: devInfo.id,
-          name: devInfo.name,
-          online: false,
-          temperature: 0.0
-        };
-      }
-    }));
-
-    return NextResponse.json(
-      { success: true, devices: results },
-      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
-    );
+    // Vracíme testovací data, abychom viděli, co Tuya Cloud odpoví na autorizaci
+    return NextResponse.json({
+      success: true,
+      tokenResponse: data,
+      devices: [
+        { id: '1', name: 'Dílna (Test)', online: true, temperature: data.success ? 20.1 : 0 },
+        { id: '2', name: 'Obývák (Test)', online: true, temperature: data.success ? 22.5 : 0 },
+        { id: '3', name: 'Venku (Test)', online: true, temperature: data.success ? 15.0 : 0 }
+      ]
+    });
 
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
