@@ -14,29 +14,83 @@ function generateSign(clientId: string, secret: string, timestamp: string, acces
   return crypto.createHmac('sha256', secret).update(signStr).digest('hex').toUpperCase();
 }
 
+async function getAccessToken() {
+  const timestamp = Date.now().toString();
+  const path = '/v1.0/token?grant_type=1';
+  const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'GET',
+    headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
+    cache: 'no-store',
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error(`Token error: ${data.msg || JSON.stringify(data)}`);
+  }
+  return data.result.access_token;
+}
+
 export async function GET() {
   try {
+    const token = await getAccessToken();
     const timestamp = Date.now().toString();
-    const path = '/v1.0/token?grant_type=1';
-    const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, '', '', 'GET', path);
 
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: 'GET',
-      headers: { client_id: CLIENT_ID, sign: sign, t: timestamp, sign_method: 'HMAC-SHA256' },
-      cache: 'no-store',
-    });
+    // Zkusíme najít zařízení spárovaná s uživatelem nebo projektem
+    // Použijeme naše 3 známá ID, ale zkusíme je vytáhnout přes oficiální endpoint pro detaily zařízení nebo seznam
+    const targetIds = ['bf524b00e3661af2bd7yjp', 'bf66c0ae13f3dbf851tc1z', 'bfa1b8eb8bda1a3781kddf'];
+    
+    const devices = [];
 
-    const data = await res.json();
+    for (const id of targetIds) {
+      // Zkusíme standardní endpoint pro funkce/stav zařízení
+      const path = `/v1.0/iot-03/devices/${id}/status`;
+      const sign = generateSign(CLIENT_ID, CLIENT_SECRET, timestamp, token, '', 'GET', path);
 
-    // Vracíme testovací data, abychom viděli, co Tuya Cloud odpoví na autorizaci
+      const res = await fetch(`${BASE_URL}${path}`, {
+        method: 'GET',
+        headers: {
+          client_id: CLIENT_ID,
+          access_token: token,
+          sign: sign,
+          t: timestamp,
+          sign_method: 'HMAC-SHA256'
+        },
+        cache: 'no-store',
+      });
+
+      const data = await res.json();
+
+      let temp = 0;
+      let online = false;
+
+      if (data.success && Array.isArray(data.result)) {
+        online = true;
+        for (const item of data.result) {
+          if (item.code && (item.code.includes('temp') || item.code.includes('temperature'))) {
+            let val = Number(item.value);
+            temp = val > 50 || val < -50 ? val / 10 : val;
+          }
+        }
+      }
+
+      let name = 'Neznámé';
+      if (id === 'bf524b00e3661af2bd7yjp') name = 'Dílna';
+      if (id === 'bf66c0ae13f3dbf851tc1z') name = 'Obývák';
+      if (id === 'bfa1b8eb8bda1a3781kddf') name = 'Venku';
+
+      devices.push({
+        id,
+        name,
+        online,
+        temperature: temp
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      tokenResponse: data,
-      devices: [
-        { id: '1', name: 'Dílna (Test)', online: true, temperature: data.success ? 20.1 : 0 },
-        { id: '2', name: 'Obývák (Test)', online: true, temperature: data.success ? 22.5 : 0 },
-        { id: '3', name: 'Venku (Test)', online: true, temperature: data.success ? 15.0 : 0 }
-      ]
+      devices
     });
 
   } catch (error: any) {
