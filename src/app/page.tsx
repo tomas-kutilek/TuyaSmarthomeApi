@@ -10,108 +10,72 @@ interface Device {
 }
 
 export default function Dashboard() {
-  const [devices, setDevices] = useState<Device[]>([
-    { id: 'bf524b00e3661af2bd7yjp', name: 'Dílna', online: true, temperature: 0 },
-    { id: 'bf66c0ae13f3dbf851tc1z', name: 'Obývák', online: true, temperature: 0 },
-    { id: 'bfa1b8eb8bda1a3781kddf', name: 'Venku', online: true, temperature: 0 },
-  ]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchDevices = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/devices?t=' + Date.now(), {
-        cache: 'no-store',
-      });
+      const res = await fetch('/api/devices', { cache: 'no-store' });
       const data = await res.json();
-      if (data.success && data.devices) {
+      
+      if (data.success && Array.isArray(data.devices)) {
         setDevices(data.devices);
+        setError(null);
+      } else {
+        setError(data.error || 'Chyba při načtení dat');
       }
-    } catch (err) {
-      console.error('Failed to fetch devices', err);
+    } catch (err: any) {
+      setError(err.message || 'Síťová chyba');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 30000);
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // Obnova každých 10 sekund
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <main style={{ 
-      margin: 0, 
-      padding: '16px', 
-      background: '#0f172a', 
-      height: '100vh', 
-      width: '100vw', 
-      boxSizing: 'border-box', 
-      color: '#fff', 
-      fontFamily: 'sans-serif',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '16px', 
-        flex: 1,
-        width: '100%',
-        height: '100%'
-      }}>
-        {devices.map((device) => {
-          let tempColor = '#fff';
-          if (device.temperature < 0) tempColor = '#60a5fa'; 
-          if (device.temperature > 25) tempColor = '#f87171'; 
+    <main className="min-h-screen bg-slate-950 text-white p-6 flex flex-col justify-center items-center">
+      <h1 className="text-3xl font-bold mb-8 tracking-wider">MĚŘENÍ TEPLOT</h1>
 
-          return (
-            <div
-              key={device.id}
-              style={{
-                background: '#1e293b',
-                borderRadius: '20px',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-                border: '1px solid #334155',
-                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
-                height: '100%',
-                boxSizing: 'border-box',
-                overflow: 'hidden'
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                {device.name.toUpperCase()}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                <span
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: device.online ? '#4ade80' : '#f87171',
-                    display: 'inline-block',
-                  }}
-                />
-                <span style={{ fontSize: '14px', color: device.online ? '#4ade80' : '#f87171', fontWeight: '600' }}>
-                  {device.online ? 'Online' : 'Offline'}
+      {error && (
+        <div className="mb-4 p-3 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm">
+          Chyba: {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+        {devices.map((dev) => (
+          <div 
+            key={dev.id} 
+            className="bg-blue-950/40 border border-blue-900/60 rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden backdrop-blur-sm h-72"
+          >
+            <div>
+              <h2 className="text-2xl font-semibold tracking-wide text-blue-100">{dev.name}</h2>
+              <div className="flex items-center mt-2 space-x-2">
+                <span className={`w-3 h-3 rounded-full ${dev.online ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-xs uppercase tracking-wider text-slate-300">
+                  {dev.online ? 'Online' : 'Offline'}
                 </span>
               </div>
-              <div style={{ 
-                fontSize: 'clamp(42px, 7vw, 84px)', 
-                fontWeight: 'bold', 
-                color: tempColor,
-                width: '100%',
-                textAlign: 'center',
-                margin: 'auto 0',
-                lineHeight: 1
-              }}>
-                {device.temperature.toFixed(1)} <span style={{ fontSize: '0.5em', fontWeight: 'normal' }}>°C</span>
-              </div>
             </div>
-          );
-        })}
+
+            <div className="text-right">
+              <span className="text-6xl font-extrabold tracking-tighter text-white">
+                {dev.temperature.toFixed(1)}
+              </span>
+              <span className="text-2xl font-medium text-blue-300 ml-1">°C</span>
+            </div>
+          </div>
+        ))}
+
+        {!loading && devices.length === 0 && !error && (
+          <div className="text-slate-400 col-span-3 text-center">Žádná zařízení k zobrazení.</div>
+        )}
       </div>
     </main>
   );
