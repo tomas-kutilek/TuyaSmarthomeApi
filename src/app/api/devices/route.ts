@@ -67,7 +67,7 @@ export async function GET() {
           let rawTemp = 0;
           let foundTemp = false;
 
-          // Bezpečné načtení stavů zařízení bez duplicitních deklarací
+          // Čisté a bezpečné načtení statusů ze zařízení
           const statusList = dev.status || dev.properties || [];
           
           if (Array.isArray(statusList)) {
@@ -82,7 +82,6 @@ export async function GET() {
             }
           }
 
-          // Některá Tuya zařízení hlásí teplotu vynásobenou 10 (např. 215 místo 21.5)
           let temperature = rawTemp > 50 || rawTemp < -50 ? rawTemp / 10 : rawTemp;
 
           return {
